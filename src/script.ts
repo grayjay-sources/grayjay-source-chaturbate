@@ -1,141 +1,175 @@
-const PLATFORM: string = "PietsmietDE";
-const PLATFORM_SHORT: string = "PSDE";
+import {
+	type State,
+	type Settings,
+	type PietsmietDESource,
+	type SearchTypes,
+	type ChannelContentsTypeCapabilities,
+	type HomeResponse,
+	type VideoResponse,
+	type StreamResponse,
+	type YoutubeResponse,
+	type CommentContext,
+	type CommentResponse
+} from "./types";
 
-const LIMIT_VIDEOS: number = 500;
-const LIMIT_COMMENTS: number = 100;
-const ORDER_VIDEOS: string = "latest";
-const ORDER_COMMENTS: string = "latest";
-const STREAM_LANGUAGE: string = "German";
+//#region defines 
+const PLATFORM = "PietsmietDE" as const
+const PLATFORM_SHORT = "PSDE" as const
 
-const URL_BASE: string = "https://www.pietsmiet.de";
-const URL_CHANNEL: string = `${URL_BASE}/videos/channels/`;
-const URL_PROFILE: string = `${URL_BASE}/profile/`;
+const LIMIT_VIDEOS = 500;
+const LIMIT_COMMENTS = 100;
+const ORDER_VIDEOS = "latest";
+const ORDER_COMMENTS = "latest"; // popular
+const STREAM_LANGUAGE = "de";
 
-const URL_API_CONFIG: string = `${URL_BASE}/api/v1/config/i`;
-const URL_API_CHANNELS: string = `${URL_BASE}/api/v1/videos/channels?page=`;
-const URL_API_HOME: string = `${URL_BASE}/api/v1/videos?limit=${LIMIT_VIDEOS}&order=${ORDER_VIDEOS}&prioritize_featured=0&page=`;
-const URL_API_PLAYLIST: string = `${URL_BASE}/api/v1/videos/playlists/`;
-const URL_API_PLAYLISTS: string = `${URL_BASE}/api/v1/videos/playlists?limit=${LIMIT_VIDEOS}&order=${ORDER_VIDEOS}&page=1`;
-const URL_API_VIDEO_DETAILS: string = `${URL_BASE}/api/v1/videos/`;
-const URL_API_VIDEO_PLAYER: string = `${URL_BASE}/api/v1/utility/player?preset=quality&video=`;
-const URL_API_COMMENTS: string = `${URL_BASE}/api/v1/utility/comments?order=${ORDER_COMMENTS}&type=video&limit=${LIMIT_COMMENTS}&id=`;
-const URL_API_SEARCH: string = `${URL_BASE}/api/v1/search?page=`;
+const URL_BASE = "https://www.pietsmiet.de";
+const URL_CHANNEL = `${URL_BASE}/videos/channels/`;
+const URL_PROFILE = `${URL_BASE}/profile/`;
 
-const URL_ICON: string = `${URL_BASE}/assets/pietsmiet/brand/icon.svg`;
-const URL_ICON_PNG: string = "https://i.vgy.me/CZ2jjB.png";
-const URL_BANNER: string = `${URL_BASE}/assets/pietsmiet/brand/wordmark-plain-light-detail.svg`;
-const URL_BANNER_PNG: string = "https://i.imgur.com/8D68cRq.png";
-const URL_PLACEHOLDER_AVATAR: string = `${URL_BASE}/assets/pietsmiet/placeholder-1-1.jpg`;
+const URL_API_CONFIG = `${URL_BASE}/api/v1/config/i`;
+const URL_API_CHANNELS = `${URL_BASE}/api/v1/videos/channels?page=`; // &order=videos
+const URL_API_HOME = `${URL_BASE}/api/v1/videos?limit=${LIMIT_VIDEOS}&order=${ORDER_VIDEOS}&prioritize_featured=0&page=`; // &playlists[]=
+const URL_API_PLAYLIST = `${URL_BASE}/api/v1/videos/playlists/`
+const URL_API_PLAYLISTS = `${URL_BASE}/api/v1/videos/playlists?limit=${LIMIT_VIDEOS}&order=${ORDER_VIDEOS}&page=1`
+const URL_API_VIDEO_DETAILS = `${URL_BASE}/api/v1/videos/`; // include[]=playlist
+const URL_API_VIDEO_PLAYER = `${URL_BASE}/api/v1/utility/player?preset=quality&video=`;
+const URL_API_COMMENTS = `${URL_BASE}/api/v1/utility/comments?order=${ORDER_COMMENTS}&type=video&limit=${LIMIT_COMMENTS}&id=`; // &include[]=replies
+const URL_API_SEARCH = `${URL_BASE}/api/v1/search?page=`; // &query= &part=videos &part=playlists
 
-const REGEX_VIDEO_URL: RegExp = /https:\/\/www\.pietsmiet\.de\/videos\/(\d+)(.*)/;
-const REGEX_CHANNEL_URL: RegExp = /https:\/\/www\.pietsmiet\.de\/videos\/channels\/(.*)/;
-const REGEX_PLAYLIST_URL: RegExp = /https:\/\/www\.pietsmiet\.de\/videos\/playlists\/(.*)/;
+const URL_ICON = `${URL_BASE}/assets/pietsmiet/brand/icon.svg`;
+const URL_ICON_PNG = "https://i.vgy.me/CZ2jjB.png" as const // Todo: Find png on their website or implement svg parsing into GrayJay @Kelvin-FUTO
+const URL_BANNER = `${URL_BASE}/assets/pietsmiet/brand/wordmark-plain-light-detail.svg`;
+const URL_BANNER_PNG = "https://i.imgur.com/8D68cRq.png"; // Todo: Find png on their website or implement svg parsing into GrayJay @Kelvin-FUTO
+const URL_PLACEHOLDER_AVATAR = `${URL_BASE}/assets/pietsmiet/placeholder-1-1.jpg`
 
-const PSPROXY_SERVERS: string[] = [
+const REGEX_VIDEO_URL = /https:\/\/www\.pietsmiet\.de\/videos\/(\d+)(.*)/; // /https:\/\/www\.pietsmiet\.de\/videos\/(.*)/;
+const REGEX_CHANNEL_URL = /https:\/\/www\.pietsmiet\.de\/videos\/channels\/(.*)/;
+const REGEX_PLAYLIST_URL = /https:\/\/www\.pietsmiet\.de\/videos\/playlists\/(.*)/;
+
+const PSPROXY_SERVERS = [
 	"https://ytapi.minopia.de/",
 	"https://ytapi2.minopia.de/"
-];
+]
 
-const HEADER_INTEGRITY: string = 'X-Origin-Integrity';
-let headerDict: { [key: string]: string } = {};
-
-const channelIcons: { [key: number]: string } = {
-	8: "https://yt3.googleusercontent.com/ytc/AIdro_nMgWqMfXY78nUTzabB0TvSF1OHeUtMc93WKpG2hnbRW3k=s176-c-k-c0x00ffffff-no-rj",
-	9: "https://yt3.googleusercontent.com/qR-4gEbPO0XQlSEwHNgNt7EG5dB_sjQ5WVExWhT11D9ItY3G24l8Egw7isWZhcsUGYcfjaT4tg=s176-c-k-c0x00ffffff-no-rj",
-	10: "https://yt3.googleusercontent.com/ytc/AIdro_nI1TZILbTDn38tNbzDb_K2rxe6c5V7UGn4hVjG2DX4jg=s176-c-k-c0x00ffffff-no-rj",
-	12: "https://yt3.googleusercontent.com/ytc/AIdro_kej_tg4mojF1qht3fNepeKyR10sAlVK4oBwUYL2hAeSg=s176-c-k-c0x00ffffff-no-rj",
-	37: URL_ICON_PNG,
-	44: "https://yt3.googleusercontent.com/ytc/AIdro_nnAWki_jzSkHEzvkkT7TDlb-WxDBIc-rcqhFoEsp0tMg=s176-c-k-c0x00ffffff-no-rj"
+const HEADER_INTEGRITY = 'X-Origin-Integrity' as const
+const headerDict: { [key: string]: string } = {
+	// 'Content-Type': 'application/json',
+	// 'Accept': 'application/json',
+	// 'Access-Control-Allow-Headers': 'Content-Type',
+	// 'X-Origin-Integrity': ''
 };
 
-let cachedChannels: { [key: string]: any } = {};
+const channelIcons = { // Todo: find a way to get these dynamically
+	8: "https://yt3.googleusercontent.com/ytc/AIdro_nMgWqMfXY78nUTzabB0TvSF1OHeUtMc93WKpG2hnbRW3k=s176-c-k-c0x00ffffff-no-rj", // @FragPietSmiet
+	9: "https://yt3.googleusercontent.com/qR-4gEbPO0XQlSEwHNgNt7EG5dB_sjQ5WVExWhT11D9ItY3G24l8Egw7isWZhcsUGYcfjaT4tg=s176-c-k-c0x00ffffff-no-rj", // @pietsmiet
+	10: "https://yt3.googleusercontent.com/ytc/AIdro_nI1TZILbTDn38tNbzDb_K2rxe6c5V7UGn4hVjG2DX4jg=s176-c-k-c0x00ffffff-no-rj", // @PietSmietTV
+	12: "https://yt3.googleusercontent.com/ytc/AIdro_kej_tg4mojF1qht3fNepeKyR10sAlVK4oBwUYL2hAeSg=s176-c-k-c0x00ffffff-no-rj", // @PietSmietBest
+	37: URL_ICON_PNG, // @pietsmietde
+	44: "https://yt3.googleusercontent.com/ytc/AIdro_nnAWki_jzSkHEzvkkT7TDlb-WxDBIc-rcqhFoEsp0tMg=s176-c-k-c0x00ffffff-no-rj" // @pietsmietlive
+} as const
 
-let config: { [key: string]: boolean | number } = {
-	"use_yt_proxy": true,
-	"yt_proxy_server": 0,
-	"merge_yt_metrics": true
-};
+function has_channel_icon(channelId: number): channelId is keyof typeof channelIcons {
+	return Object.keys(channelIcons).includes(channelId.toString())
+}
 
-let _settings: { [key: string]: boolean | number } = {
-	"use_yt_proxy": true,
-	"yt_proxy_server": 0,
-	"merge_yt_metrics": true
-};
+let local_state: State
 
-let yt: any;
-let errorLog: string = "";
-const logErrors: boolean = true;
+let local_settings: Settings
 
+let yt: Youtube
+let errorLog = "";
+const logErrors = true;
+//#endregion
+
+//#region source methods
+const local_source: PietsmietDESource = {
+	enable,
+	disable,
+	saveState,
+	getHome,
+	isContentDetailsUrl,
+	getContentDetails,
+	isChannelUrl,
+	getChannel,
+	search,
+	getSearchCapabilities,
+	getSearchChannelContentsCapabilities,
+	isPlaylistUrl,
+	getPlaylist,
+	getComments
+}
+init_source(local_source)
+function init_source<
+	T extends { readonly [key: string]: string },
+	S extends string,
+	ChannelTypes extends FeedType,
+	SearchTypes extends FeedType,
+	ChannelSearchTypes extends FeedType
+>(local_source: Source<T, S, ChannelTypes, SearchTypes, ChannelSearchTypes, Settings>) {
+	for (const method_key of Object.keys(local_source)) {
+		// @ts-expect-error assign to readonly constant source object
+		source[method_key] = local_source[method_key]
+	}
+}
+//#endregion
+
+//#region utils
 class Utils {
-	error = (message: string, error: any, _throw: boolean = false): void => {
-		const fmt: string = utils.log(`${message}: ${error} (${JSON.stringify(error)})`, true);
+	error = function (message: string, error: string | null | unknown, _throw = false) {
+		const fmt = utils.log(`${message}: ${error} (${JSON.stringify(error)})`, true);
 		if (_throw) {
-			const log: string = errorLog; errorLog = "";
+			const log = errorLog; errorLog = "";
 			throw new ScriptException(`${fmt}\n\n${log}`);
 		}
 	}
-
-	log = (message: any, toast: boolean = false): string => {
+	log = function (message: string, toast = false) {
 		message = JSON.stringify(message);
-		const formattedMessage: string = `[${new Date().toISOString()}] [${PLATFORM_SHORT}] ${message}`;
+		const formattedMessage = `[${new Date().toISOString()}] [${PLATFORM_SHORT}] ${message}`;
 		log(formattedMessage);
+		// console.log(formattedMessage);
+		// bridge.log(formattedMessage);
 		if (toast) bridge.toast(message);
 		try {
-			if (logErrors) errorLog += `${errorLog}\n${message}`;
-		} catch (error) { }
+			if (logErrors) errorLog += `${errorLog}\n${message}`
+		} catch (error) {
+			log(error)
+		}
 		return formattedMessage;
 	}
-
-	debug = (obj: any): void => {
+	debug = function (obj: unknown) {
 		bridge.throwTest((utils.log(`Debug: ${JSON.stringify(obj)}`)));
 	}
-
-	getItemsByProp = (dict: { [key: string]: any }, prop: string, value: any): any[] => {
-		let foundObjects: any[] = [];
-		for (let key in dict) {
-			if (dict[key][prop] === value) {
-				foundObjects.push(dict[key]);
-			}
-		}
-		return foundObjects;
-	}
-
-	getItemByProp = (dict: { [key: string]: any }, prop: string, value: any, defaultValue: any = null): any => {
-		try {
-			const items: any[] = this.getItemsByProp(dict, prop, value);
-			return items.length > 0 ? items[0] : defaultValue;
-		} catch (error) {
-			return defaultValue;
-		}
-	}
-
-	prepend = (array: any[], value: any): any[] => {
-		const newArray: any[] = array.slice();
+	prepend = function <T>(array: T[], value: T) {
+		const newArray = array.slice();
 		newArray.unshift(value);
 		return newArray;
 	}
-
-	isNullOrEmpty = (str: string | null): boolean => {
-		return str === null || str === "";
+	isNullOrEmpty = function (str: string | null | undefined | unknown) {
+		return str === null || str === "" || str === undefined
 	}
-
-	isObjectEmpty = (obj: object): boolean => {
+	isObjectEmpty(obj: object) {
 		return obj !== null && Object.keys(obj).length === 0;
 	}
-
-	atob = (encodedData: string): string => {
+	atob = function (encodedData: string) {
 		return String.fromCharCode(...utility.fromBase64(encodedData));
 	}
-
-	updateQueryStringParameter = (url: string, key: string, value: string): string => {
-		let queryString: string = '';
+	updateQueryStringParameter = function (url: string, key: string, value: string) {
+		let queryString = '';
 		if (url.indexOf('?') !== -1) {
-			const urlParts: string[] = url.split('?');
-			const queryParams: string = urlParts[1];
-			const paramsArray: string[] = queryParams.split('&');
-			let paramNameIndex: number = -1;
+			const urlParts = url.split('?');
+			// const base = urlParts[0];
+			const queryParams = urlParts[1];
+			if (queryParams === undefined) {
+				throw new ScriptException("missing query params")
+			}
+			const paramsArray = queryParams.split('&');
+			let paramNameIndex = -1;
 			for (let i = 0; i < paramsArray.length; i++) {
-				const [name, _] = paramsArray[i].split('=');
+				const param = paramsArray[i]
+				if (param === undefined) {
+					throw new ScriptException("unreachable")
+				}
+				const [name] = param.split('=');
 				if (name === key) {
 					paramNameIndex = i;
 					break;
@@ -152,30 +186,53 @@ class Utils {
 		}
 		return `${url}${queryString}`;
 	}
-
-	getLastPart = (inputString: string, separator: string = '/'): string => {
+	getLastPart(inputString: string, seperator = '/') {
 		if (!inputString) return '';
-		const parts: string[] = inputString.split(separator);
+		const parts = inputString.split(seperator);
 		return parts[parts.length - 1];
 	}
-
-	format = (input: string, ...args: any[]): string => {
-		return input.replace(/(\{\d+\})/g, function (a) {
-			return args[+(a.substr(1, a.length - 2)) || 0];
-		});
-	}
-
-	clone = (obj: any): any => {
+	clone = function (obj: unknown) {
 		return JSON.parse(JSON.stringify(obj));
-	}
+		/*
+		// Handle the 3 simple types, and null or undefined
+		if (null == obj || "object" != typeof obj) return obj;
 
-	get = (url_s: string | string[], headers: { [key: string]: string } = {}, name: string | null = null): any => {
+		// Handle Date
+		if (obj instanceof Date) {
+			var copy = new Date();
+			copy.setTime(obj.getTime());
+			return copy;
+		}
+
+		// Handle Array
+		if (obj instanceof Array) {
+			var copy = [];
+			for (var i = 0, len = obj.length; i < len; i++) {
+				copy[i] = this.clone(obj[i]);
+			}
+			return copy;
+		}
+
+		// Handle Object
+		if (obj instanceof Object) {
+			var copy = {};
+			for (var attr in obj) {
+				if (obj.hasOwnProperty(attr)) copy[attr] = this.clone(obj[attr]);
+			}
+			return copy;
+		}
+
+		throw new Error("Unable to copy obj! Its type isn't supported.");
+		*/
+	}
+	get = function (url_s: string[] | string, headers = {}, name: "YTProxy" | typeof PLATFORM_SHORT | null = null) {
 		url_s = Array.isArray(url_s) ? url_s : [url_s];
 		name = name ?? PLATFORM_SHORT;
-		for (let url of url_s) {
+		log(name)
+		for (const url of url_s) {
 			try {
 				utils.log(`GET ${url}`);
-				const response: any = http.GET(url, headers);
+				const response = http.GET(url, headers, false);
 				if (!response.isOk) {
 					utils.error(`Failed to get ${url} [${response.code}]`, null, true);
 				}
@@ -185,77 +242,90 @@ class Utils {
 			}
 		}
 		utils.error(`${url_s.length} URLs failed to fetch`, null, true);
+		throw new ScriptException("unreachable")
 	}
-
-	getJson = (url_s: string | string[], headers: { [key: string]: string } = {}, name: string | null = null): any => {
-		headers["Accept"] = "application/json";
-		const response: any = this.get(url_s, headers, name);
+	getJson(this: Utils, url_s: string | string[], headers: HTTPHeaders = {}, name: "YTProxy" | null = null) {
+		const new_headers = { ...headers, Accept: "application/json" }
+		const response = this.get(url_s, new_headers, name);
 		return JSON.parse(response.body);
 	}
 }
+const utils = new Utils();
 
-const utils: Utils = new Utils();
 
-function hasIntegrity(): boolean {
-	return headerDict.hasOwnProperty(HEADER_INTEGRITY) && !utils.isNullOrEmpty(headerDict[HEADER_INTEGRITY]);
+//   ytInfo.getVideoInfo(videoId)
+// 	.then(data => {
+// 	  utils.log(`Video Info: ${data}`);
+// 	})
+// 	.catch(error => {
+// 	  utils.log(`Failed to fetch video info: ${JSON.stringify(error)}`);
+// 	});
+
+function hasIntegrity() {
+	return headerDict[HEADER_INTEGRITY] !== undefined && !utils.isNullOrEmpty(headerDict[HEADER_INTEGRITY])
 }
+//#endregion
 
-function getPlatformId(id: number): PlatformID {
-	return new PlatformID(PLATFORM, id.toString(), config.id);
+//#region parsing
+function getPlatformId(id: string) {
+	return new PlatformID(PLATFORM, id.toString(), plugin.config.id);
 }
-
-function parseChannelSlug(url: string): string {
-	const matches: RegExpExecArray | null = REGEX_CHANNEL_URL.exec(url);
-	return matches ? matches[1] : '';
+function parseChannelSlug(url: string) {
+	const matches = REGEX_CHANNEL_URL.exec(url);
+	return matches?.[1]
 }
-
-function parsePlaylistSlug(url: string): string {
-	const matches: RegExpExecArray | null = REGEX_PLAYLIST_URL.exec(url);
-	return matches ? matches[1] : '';
+function parsePlaylistSlug(url: string) {
+	const matches = REGEX_PLAYLIST_URL.exec(url);
+	return matches?.[1];
 }
-
-function parseVideoSlug(url: string): string {
-	const matches: RegExpExecArray | null = REGEX_VIDEO_URL.exec(url);
-	return matches ? matches[1] : '';
+function parseVideoSlug(url: string) {
+	const matches = REGEX_VIDEO_URL.exec(url);
+	return matches?.[1];
 }
-
-function parseIdFromSlug(slug: string): number {
-	return parseInt(slug.split("-", 1)[0]);
+function parseIdFromSlug(slug: string) {
+	return parseInt(slug.split("-", 1)[0] ?? "");
 }
-
-function parseThumbnailVariations(variationsDict: any[]): Thumbnails {
-	return new Thumbnails(variationsDict.map(y => new Thumbnail(y.url, y.height)));
+function parseThumbnailVariations(variationsDict: { readonly url: string, readonly height: number }[]) {
+	return new Thumbnails(variationsDict.map(y => new Thumbnail(y.url, y.height)))
 }
-
-function parseAuthor(videoDict: any): PlatformAuthorLink {
+function parseAuthor(videoDict: {
+	readonly channels: {
+		readonly url_slug: string
+		readonly id: number
+		readonly title: string
+	}[]
+}) {
 	const channel = videoDict.channels[0];
+	if (channel === undefined) {
+		throw new ScriptException("missing channel")
+	}
 	const url = URL_CHANNEL + channel.url_slug;
-	const cachedChannel = source.getChannel(url);
+	const cachedChannel = getChannel(url)
 	return new PlatformAuthorLink(
-		getPlatformId(channel.id),
+		getPlatformId(channel.id.toString()),
 		channel.title,
 		url,
-		channelIcons[channel.id],
+		has_channel_icon(channel.id) ? channelIcons[channel.id] : "", // todo: improve
 		cachedChannel.subscribers
 	);
 }
-
 function parseDate(date: string): number {
-	return parseInt((new Date(date)).getTime() / 1000);
+	return (new Date(date)).getTime() / 1000
 }
+//#endregion
 
-function getPlaceholderAuthor(): PlatformAuthorLink {
+//#region placeholders
+function getPlaceholderAuthor() {
 	return new PlatformAuthorLink(
-		platformPlaylistId,
+		new PlatformID(PLATFORM, "", plugin.config.id),
 		PLATFORM,
 		URL_BASE,
-		channelIcons[37]
+		channelIcons[37] // todo: improve
 	);
 }
-
-function getPlaceholderChannel(url: string = "", id: number = 0): PlatformChannel {
+function getPlaceholderChannel(url = "", id = 0) {
 	return new PlatformChannel({
-		id: getPlatformId(0),
+		id: getPlatformId(id.toString()),
 		name: PLATFORM,
 		thumbnail: URL_ICON_PNG,
 		banner: URL_BANNER_PNG,
@@ -265,175 +335,209 @@ function getPlaceholderChannel(url: string = "", id: number = 0): PlatformChanne
 		links: {}
 	});
 }
+//#endregion
 
-function getProtected(url_s: string | string[]): any {
+//#region api
+function getProtected(url_s: string) {
 	if (!hasIntegrity()) {
 		fetchIntegrityValue();
 	}
-	const response: any = utils.get(url_s, headerDict);
+	const response = utils.get(url_s, headerDict);
 	if (!response.isOk) {
 		utils.error(`Failed to get ${url_s} [${response.code}]`, null, true);
-		if (response.status === 400) fetchIntegrityValue();
+		if (response.code === 400) fetchIntegrityValue();
 	}
 	return response.body;
 }
-
-function getProtectedJson(url_s: string | string[]): any {
+function getProtectedJson(url_s: string | string[]) {
 	return utils.getJson(url_s, headerDict);
 }
-
-function fetchIntegrityValue(): void {
-	const confResponse: any = utils.get(URL_API_CONFIG, {});
+function fetchIntegrityValue() {
+	const confResponse = utils.get(URL_API_CONFIG, {}); // headerDict
 	if (!confResponse.isOk)
 		utils.error(`Failed to get integrity value from ${URL_API_CONFIG} [${confResponse.code}]`, null, true);
-	const results: any = JSON.parse(confResponse.body);
+	const results = JSON.parse(confResponse.body);
 	headerDict[utils.atob(results.h)] = utils.atob(results.v);
 }
-
-function fetchChannels(): void {
-	cachedChannels = getProtectedJson(URL_API_CHANNELS);
+function fetchChannels() {
+	//TODO
+	log(getProtectedJson(URL_API_CHANNELS))
 }
+//#endregion
 
-source.setSettings = function (settings: { [key: string]: boolean | number }): void {
-	_settings = (utils.isObjectEmpty(settings)) ? _settings : settings;
-}
-
-source.enable = function (conf: { [key: string]: boolean | number }, settings: { [key: string]: boolean | number }, savedState: any): string {
-	config = (utils.isObjectEmpty(conf)) ? config : conf;
-	_settings = (utils.isObjectEmpty(settings)) ? _settings : settings;
+//#region home
+function enable(config: SourceConfig, settings: Settings, saved_state?: string | null) {
+	if (IS_TESTING) {
+		log("IS_TESTING true")
+		log("logging configuration")
+		log(config)
+		log("logging settings")
+		log(settings)
+		log("logging savedState")
+		log(saved_state)
+	}
+	local_settings = settings
+	if (saved_state !== null && saved_state !== undefined) {
+		const state: State = JSON.parse(saved_state)
+		local_state = state
+	} else {
+		local_state = {
+			cachedChannels: {}
+		}
+	}
 	fetchIntegrityValue();
 	fetchChannels();
 	yt = new Youtube();
-	let msg: string = `plugin enabled | ${HEADER_INTEGRITY}=${headerDict[HEADER_INTEGRITY]} | ${Object.keys(cachedChannels).length} channels | ${Object.keys(channelIcons).length} icons`;
+	let msg = `plugin enabled | ${HEADER_INTEGRITY}=${headerDict[HEADER_INTEGRITY]} | ${Object.keys(local_state.cachedChannels).length} channels | ${Object.keys(channelIcons).length} icons`;
 	msg = utils.log(msg);
+	// return info;
 	return msg;
 }
-
-source.disable = function (conf: { [key: string]: boolean | number }, settings: { [key: string]: boolean | number }, savedState: any): string {
-	const msg: string = utils.log(`plugin disabled`);
-	return msg;
+function disable() {
+	utils.log(`plugin disabled`)
 }
 
-source.getHome = function (): ContentPager {
+function saveState() {
+	return JSON.stringify(local_state)
+}
+
+function getHome() {
 	return new ContentPager(getVideoResults(1), true);
 };
 
 class HomePager extends VideoPager {
-	page: number;
-
-	constructor(initialResults: any[], hasMore: boolean) {
-		super(initialResults, hasMore);
+	private page: number;
+	constructor(results: PlatformVideo[], has_more: boolean) {
+		super(results, has_more);
 		this.page = 0;
 	}
 
-	nextPage(): HomePager {
+	override nextPage(this: HomePager) {
 		this.page++;
 		this.results = getVideoResults(this.page);
 		this.hasMore = true;
 		return this;
 	}
 }
-
-function getVideoResults(page: number, playlists: number[] = []): PlatformVideo[] {
-	let url: string = URL_API_HOME + page;
+function getVideoResults(page: number, playlists: number[] = []) {
+	let url = URL_API_HOME + page;
 	if (playlists.length > 0) {
 		url += "&playlists[]=" + playlists.join(",");
 	}
-	const results: any[] = getProtectedJson(url).data;
+	const results: HomeResponse = getProtectedJson(url);
 
-	return results.map(x => new PlatformVideo({
+	return results.data.map(x => new PlatformVideo({
 		id: getPlatformId(x.id),
 		name: x.title,
 		thumbnails: parseThumbnailVariations(x.thumbnail.variations),
 		author: parseAuthor(x),
 		datetime: parseDate(x.publish_date),
 		duration: x.duration,
+		// viewCount: 0, // todo: fix
 		url: URL_BASE + x.url,
 		shareUrl: x.short_url,
 		isLive: false
-	}));
+	}))
 }
 
-source.getSearchCapabilities = (): { types: string[], sorts: string[], filters: any[] } => {
-	return {
-		types: [Type.Feed.Mixed],
-		sorts: [Type.Order.Chronological],
-		filters: []
-	};
+function getSearchCapabilities() {
+	return new ResultCapabilities<string, SearchTypes>(
+		[Type.Feed.Videos],
+		[Type.Order.Chronological],
+		[]
+	)
 };
+function search(query: string, type: SearchTypes | null, order: Order | null, filters: FilterQuery<string> | null) {
+	log([query, type, order, filters])
 
-source.search = function (query: string, type: string, order: string, filters: any[]): ContentPager {
-	return new ContentPager([], false);
+	return new ContentPager([], false)
 };
-
-source.getSearchChannelContentsCapabilities = function (): { types: string[], sorts: string[], filters: any[] } {
-	return {
-		types: [Type.Feed.Mixed],
-		sorts: [Type.Order.Chronological],
-		filters: []
-	};
+function getSearchChannelContentsCapabilities() {
+	return new ResultCapabilities<string, ChannelContentsTypeCapabilities>(
+		[Type.Feed.Videos],
+		[Type.Order.Chronological],
+		[]
+	)
 };
+//#endregion
 
-source.isChannelUrl = function (url: string): boolean {
+//#region channel
+function isChannelUrl(url: string) {
 	return REGEX_CHANNEL_URL.test(url);
 };
-
-source.getChannel = function (url: string): PlatformChannel {
-	const channelSlug: string = parseChannelSlug(url);
-	const channelId: number = parseIdFromSlug(channelSlug);
-	const channelResponse: any = utils.getItemByProp(cachedChannels.data, "id", channelId);
-	if (!utils.isNullOrEmpty(channelResponse)) {
-		return new PlatformChannel({
-			id: getPlatformId(channelId),
-			name: channelResponse.title ?? "",
-			thumbnail: channelIcons[channelId] ?? "",
-			banner: channelResponse.first_video?.thumbnail.variations[0].url ?? "",
-			subscribers: channelResponse.followings_count,
-			description: channelResponse.description ?? channelResponse.title ?? "",
-			url: url,
-			links: {}
-		});
+function getChannel(url: string): PlatformChannel {
+	const channelSlug = parseChannelSlug(url);
+	if (channelSlug === undefined) {
+		throw new ScriptException("invalid channel url")
 	}
-	return getPlaceholderChannel(url, channelId);
-};
+	const channelId = parseIdFromSlug(channelSlug);
+	const channelResponse = local_state.cachedChannels[channelId]
+	if (channelResponse === undefined) {
+		return getPlaceholderChannel(url, channelId);
+	}
 
-function getPlaylistDetailsFromId(id: number): any {
-	const url: string = URL_API_PLAYLIST + id;
+	return new PlatformChannel({
+		id: getPlatformId(channelId.toString()),
+		name: channelResponse.title ?? "",
+		thumbnail: has_channel_icon(channelId) ? channelIcons[channelId] : "",
+		banner: channelResponse.first_video?.thumbnail.variations[0]?.url ?? "",
+		subscribers: channelResponse.followings_count,
+		description: channelResponse.description ?? channelResponse.title ?? "",
+		url: url,
+		links: {}
+	});
+};
+//#endregion
+
+//#region playlist
+function getPlaylistDetailsFromId(id: string) {
+	const url = URL_API_PLAYLIST + id;
 	return getProtectedJson(url).playlist;
 }
-
-source.isPlaylistUrl = function (url: string): boolean {
+function isPlaylistUrl(url: string) {
 	return REGEX_PLAYLIST_URL.test(url);
 }
-
-source.getPlaylist = function (url: string): PlatformPlaylistDetails {
-	const slug: string = parsePlaylistSlug(url);
-	const id: number = parseIdFromSlug(slug);
-	const playlistDetails: any = getPlaylistDetailsFromId(id);
-	const playlistVideos: PlatformVideo[] = getVideoResults(1, [id]);
-	const platformPlaylistId: PlatformID = getPlatformId(playlistDetails.id);
-	const firstVideoAuthor: PlatformAuthorLink = playlistVideos[0].author;
+function getPlaylist(url: string) {
+	const slug = parsePlaylistSlug(url);
+	if (slug === undefined) {
+		throw new ScriptException("invalid playlist url")
+	}
+	const id = parseIdFromSlug(slug);
+	const playlistDetails = getPlaylistDetailsFromId(id.toString());
+	const playlistVideos = getVideoResults(1, [id]);
+	const platformPlaylistId = getPlatformId(playlistDetails.id);
+	const firstVideoAuthor = playlistVideos[0]?.author;
 	return new PlatformPlaylistDetails({
 		url: url,
 		id: platformPlaylistId,
-		author: firstVideoAuthor,
+		author: firstVideoAuthor !== undefined ? firstVideoAuthor : getPlaceholderAuthor()/*new PlatformAuthorLink(
+			platformPlaylistId,
+			PLATFORM,
+			URL_BASE,
+			channelIcons[37] // todo: improve
+		)*/,
 		name: playlistDetails.title,
+		// thumbnail: thumbnail,
 		videoCount: playlistDetails.videos_count,
-		contents: new VideoPager(playlistVideos)
+		contents: new VideoPager(playlistVideos, false)
 	});
 }
+//#endregion
 
-source.isContentDetailsUrl = function (url: string): boolean {
+//#region content
+function isContentDetailsUrl(url: string) {
 	return REGEX_VIDEO_URL.test(url);
 };
-
-source.getContentDetails = function (url: string): PlatformVideoDetails {
-	const video_id: string = parseVideoSlug(url);
-	const detailResults: any = getProtectedJson(URL_API_VIDEO_DETAILS + video_id);
-	const streamsResults: any = getProtectedJson(URL_API_VIDEO_PLAYER + video_id);
-	let sourceVideos: any[] = [];
+function getContentDetails(url: string) {
+	const video_id = parseVideoSlug(url);
+	if (video_id === undefined) {
+		throw new ScriptException("failed to calculate video id")
+	}
+	const detailResults: VideoResponse = getProtectedJson(URL_API_VIDEO_DETAILS + video_id);
+	const streamsResults: StreamResponse = getProtectedJson(URL_API_VIDEO_PLAYER + video_id);
+	const sourceVideos: IVideoSource[] = [];
 	streamsResults.options.tracks.forEach(e => {
-		const hlssource: any = e.sources.hls;
+		const hlssource = e.sources.hls;
 		if (hlssource !== null && !utils.isNullOrEmpty(hlssource.src)) {
 			sourceVideos.push(new HLSSource({
 				language: STREAM_LANGUAGE,
@@ -441,166 +545,188 @@ source.getContentDetails = function (url: string): PlatformVideoDetails {
 				duration: detailResults.video.duration ?? -1,
 				priority: e.main ?? false,
 				url: hlssource.src,
-				container: hlssource.type ?? "application/x-mpegurl"
 			}));
 		}
-		const dashsource: any = e.sources.dash;
+		const dashsource = e.sources.dash;
 		if (dashsource !== null && !utils.isNullOrEmpty(dashsource.src)) {
 			sourceVideos.push(new DashSource({
 				language: STREAM_LANGUAGE,
 				name: `${e.full_title} (Dash)`,
 				duration: detailResults.video.duration ?? -1,
-				priority: e.main ?? false,
 				url: dashsource.src,
-				container: dashsource.type ?? "application/dash+xml"
 			}));
 		}
-		const mp4source: any = e.sources.mp4;
+		const mp4source = e.sources.mp4;
 		if (mp4source !== null && !utils.isNullOrEmpty(mp4source.src)) {
 			sourceVideos.push(new VideoUrlSource({
-				language: STREAM_LANGUAGE,
 				name: `${e.full_title} (mp4)`,
 				duration: detailResults.video.duration ?? -1,
-				priority: e.main ?? false,
 				url: mp4source.src,
-				container: mp4source.type ?? "video/mp4"
+				container: mp4source.type ?? "video/mp4",
+				width: 0,
+				height: 0,
+				codec: "",
+				bitrate: 0
 			}));
 		}
 	});
-	let likeCount: number = detailResults.video.likes_count;
-	let pvd: any = {
-		id: getPlatformId(detailResults.video.id),
+	const likeCount = detailResults.video.likes_count;
+	const pvd = {
+		id: getPlatformId(detailResults.video.id), // streamsResults.tracks[0]
 		name: detailResults.video.title,
 		thumbnails: parseThumbnailVariations(detailResults.video.thumbnail.variations),
 		author: parseAuthor(detailResults.video),
-		uploadDate: parseDate(detailResults.video.publish_date),
+		datetime: parseDate(detailResults.video.publish_date),
 		duration: detailResults.video.duration,
+		// viewCount: detailResults.video.likes_count,
 		url: url,
 		shareUrl: detailResults.video.short_url,
 		isLive: false,
-		description: detailResults.video.description,
-		video: new VideoSourceDescriptor(sourceVideos),
-		live: null,
-		rating: new RatingLikes(likeCount),
-		subtitles: []
+		description: detailResults.video.description, //  + `<br/><br/>${url}?ref=grayjay`
+		video: new VideoSourceDescriptor(sourceVideos), //See sources
+		rating: new RatingLikes(likeCount) as IRating,
+		subtitles: [] as ISubtitleSource[],
+		viewCount: 0
 	}
+	// PSProxy
 
-	if (_settings["use_yt_proxy"]) {
+	if (local_settings.use_yt_proxy) {
 		try {
-			const ytdata: any = yt.get(video_id);
-			if (ytdata === null) { utils.error(`Unable to fetch Youtube data for ${video_id}`, {}, false); return new PlatformVideoDetails(pvd); }
-			const yt_data: any = ytdata["youtube-data"]["items"][0];
-			const yt_dislikes: any = ytdata["youtube-dislike"];
-			const yt_video_id: string = yt_data["id"];
-			const yt_viewCount: number = parseInt(yt_data["statistics"]["viewCount"]);
-			const yt_likeCount: number = parseInt(yt_data["statistics"]["likeCount"]);
-			const yt_dislikeCount: number = yt_dislikes["dislikes"];
-			const yt_commentCount: number = parseInt(yt_data["statistics"]["commentCount"]);
+			const ytdata = yt.get(video_id)
+			if (ytdata === null) { utils.error(`Unable to fetch Youtube data for ${video_id}`, null, false); return new PlatformVideoDetails(pvd); }
+			const yt_data = ytdata["youtube-data"].items[0];
+			if (yt_data === undefined) {
+				throw new ScriptException("no youtube data")
+			}
+			const yt_dislikes = ytdata["youtube-dislike"];
+			const yt_video_id = yt_data.id;
+			const yt_viewCount = parseInt(yt_data.statistics.viewCount);
+			const yt_likeCount = parseInt(yt_data.statistics.likeCount);
+			const yt_dislikeCount = yt_dislikes.dislikes;
+			const yt_commentCount = parseInt(yt_data.statistics.commentCount);
 
-			const yt_subtitles: any = ytdata["youtube-transcripts"];
+			const yt_subtitles = ytdata["youtube-transcripts"];
 			if (yt_subtitles) {
-				for (var [name, transcript] of Object.entries(yt_subtitles)) {
-					const transcript_url: string = transcript["url"] + "&format=vtt";
-					if (transcript["is_generated"] && !transcript["is_translatable"]) name += " (auto-translated)";
+				for (const [name, transcript] of Object.entries(yt_subtitles)) {
+					const transcript_url = transcript.url + "&format=vtt"
 					pvd.subtitles.push({
-						name: name,
+						name: transcript.is_generated && !transcript.is_translatable ? name + " (auto-translated)" : name,
 						url: transcript_url,
-						format: 'text/vtt',
+						format: "text/vtt",
 						getSubtitles() {
-							try { return utils.get(transcript_url)?.body ?? ''; }
+							try { return utils.get(transcript_url)?.body ?? ""; }
 							catch (error) {
-								utils.error(`Failed to download subtitles from ${transcript_url}: ${error?.message}`, error, false);
-								return '';
+								if (error instanceof Error) {
+									utils.error(`Failed to download subtitles from ${transcript_url}: ${error?.message}`, error, false);
+								}
+								return "";
 							}
 						},
 					});
 				}
+
 			}
 
-			if (_settings["merge_yt_metrics"]) {
+			if (local_settings.merge_yt_metrics) {
 				if (yt_dislikes === null) {
-					pvd["rating"] = new RatingLikes(likeCount + yt_likeCount);
+					pvd.rating = new RatingLikes(likeCount + yt_likeCount)
 				} else {
-					pvd["rating"] = new RatingLikesDislikes(likeCount + yt_likeCount, yt_dislikeCount);
+					pvd.rating = new RatingLikesDislikes(likeCount + yt_likeCount, yt_dislikeCount)
 				}
-				pvd["viewCount"] = yt_viewCount;
+				pvd.viewCount = yt_viewCount
 			}
 			pvd["description"] =
 				`${detailResults.video.short_url}?ref=grayjay (Likes: ${detailResults.video.likes_count} Comments: ${detailResults.video.comments_count})<br/>` +
-				`https://youtu.be/${yt_video_id}?ref=grayjay (Views: ${yt_viewCount} Likes: ${yt_likeCount} Dislikes: ${yt_dislikeCount} Comments: ${yt_commentCount})<br/><br/>` +
-				pvd["description"];
+				`https://youtu.be/${yt_video_id}?ref=grayjay (Views: ${yt_viewCount} Likes: ${yt_likeCount} Dislikes: ${yt_dislikeCount} Comments: ${yt_commentCount})<br/><br/>`
+				+ pvd["description"];
 		} catch (error) {
 			utils.error(`Unable to fetch Youtube data for ${video_id}: ${error}`, error, false);
 		}
 	}
 	return new PlatformVideoDetails(pvd);
 };
+//#endregion
 
-source.getComments = function (url: string): CommentPager {
-	return getCommentResults(url, 1);
+//#region comments
+function getComments(url: string) {
+	// const video_id = parseVideoId(url);
+	return getCommentResults(url, 1); // new CommentPager([], false);
 };
-
-class PietsmietDECommentPager extends CommentPager {
-	hasMore: boolean;
-
-	constructor(comments: Comment[], hasMore: boolean, contextUrl: string) {
-		super(comments, hasMore != null, contextUrl);
-		this.hasMore = hasMore;
+class PietsmietDECommentPager extends CommentPager<CommentContext> {
+	private page: number
+	constructor(results: PlatformComment<CommentContext>[], has_more: boolean, private readonly contextUrl: string) {
+		super(results, has_more);
+		this.hasMore = has_more;
+		this.page = 0
 	}
-
-	nextPage(): PietsmietDECommentPager {
+	override nextPage(this: PietsmietDECommentPager): PietsmietDECommentPager {
 		if (!this.hasMore)
-			return new CommentPager([], false);
+			return new PietsmietDECommentPager([], false, this.contextUrl);
 		this.page++;
 		return getCommentResults(this.contextUrl, this.page) ?? new CommentPager([], false);
 	}
 }
-
-function getCommentResults(contextUrl: string, page: number): PietsmietDECommentPager {
-	const video_id: string = parseVideoSlug(contextUrl);
-	const results: any = getProtectedJson(`${URL_API_COMMENTS}${video_id}&page=${page}`);
-	const comments: Comment[] = results.data?.map(i => {
-		const c: Comment = new Comment({
+function getCommentResults(contextUrl: string, page: number) {
+	const video_id = parseVideoSlug(contextUrl);
+	const results: CommentResponse = getProtectedJson(`${URL_API_COMMENTS}${video_id}&page=${page}`);
+	const comments = results.data?.map(i => {
+		const c = new PlatformComment({
 			contextUrl: contextUrl,
 			author: new PlatformAuthorLink(getPlatformId(i.id),
 				i.user.name ?? "",
 				URL_PROFILE + i.user.url_slug,
 				i.user.avatar?.variations[0]?.url ?? URL_PLACEHOLDER_AVATAR),
 			message: i.text ?? "",
-			date: Date.parse(i.created_at) / 1000,
+			date: Date.parse(i.created_at) / 1000, // parseDate(i.created_at), // 
 			replyCount: i.count_replies,
 			rating: new RatingLikesDislikes(i.likes_count, i.dislikes_count),
 			context: { commentId: i.id }
 		});
 		return c;
 	}) ?? [];
-	const hasMore: boolean = results.meta.current_page < results.meta.last_page;
+	const hasMore = results.meta.current_page < results.meta.last_page;
 	return new PietsmietDECommentPager(comments, hasMore, contextUrl);
 }
+//#endregion
 
+//#region youtube
 class Youtube {
-	headers: { [key: string]: string };
+	headers = {
+		'X-Powered-By': 'GrayJay',
+		'X-GrayJay-Source': PLATFORM_SHORT
+	};
 
-	constructor() {
-		this.headers = {
-			'X-Powered-By': 'GrayJay',
-			'X-GrayJay-Source': PLATFORM_SHORT
-		};
-	}
-
-	get = (video_id: string): any => {
+	get(this: Youtube, video_id: string) {
 		try {
-			const prefered_server_index: number = _settings["yt_proxy_server"] ?? 0;
-			const prefered_server: string = PSPROXY_SERVERS[prefered_server_index];
-			const url: string = `${prefered_server}?videoId=${video_id}`;
+			const prefered_server_index = local_settings.yt_proxy_server ?? 0;
+			const prefered_server = PSPROXY_SERVERS[prefered_server_index];
+			// const urls = this.urls.map((item) => item += "?videoId=" + video_id) ;// => utils.format(item, video_id));
+			const url = `${prefered_server}?videoId=${video_id}`;
 			utils.log(url, true);
-			const response: any = utils.getJson(url, this.headers, "YTProxy");
+			const response: YoutubeResponse = utils.getJson(url, this.headers, "YTProxy");
 			return response || null;
 		} catch (error) {
-			utils.error(`[Youtube] ${video_id}: ${error?.message}`, error);
+			if (error instanceof Error) {
+				utils.error(`[Youtube] ${video_id}: ${error?.message}`, error)
+			}
 			throw error;
 		}
 	}
 }
+//#endregion
 
-log("LOADED");
+//#region utilities
+/**
+ * Converts seconds to the timestamp format used in WebVTT
+ * @param seconds 
+ * @returns 
+ */
+function milliseconds_to_WebVTT_timestamp(milliseconds: number) {
+	return new Date(milliseconds).toISOString().substring(11, 23)
+}
+//#endregion
+
+console.log(milliseconds_to_WebVTT_timestamp, URL_API_PLAYLISTS, URL_API_SEARCH, URL_ICON, URL_BANNER, getProtected, HomePager)
+// export statements are removed during build step
+// used for unit testing in VimeoScript.test.ts
+export { milliseconds_to_WebVTT_timestamp }

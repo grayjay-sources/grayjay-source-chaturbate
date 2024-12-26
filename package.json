@@ -1,53 +1,50 @@
 {
-    "name": "grayjay-pietsmiet.de-source",
+    "name": "grayjay-pietsmiet.de-plugin",
     "version": "1.0.0",
-    "description": "GrayJay source for Pietsmiet.de",
-    "engines": {
-        "node": ">=20.0.0"
-    },
-    "module": "src/script.ts",
-    "scripts": {
-        "bun-test": "bun run build && node --test",
-        "test": "npm run build && node --test",
-        "build": "tsc && cp src/script.[tj]s* build && sed -i '/^export/s/^/\\/\\/ /' build/script.[tj]s",
-        "bun-release": "bun install && bun update && bun x npm-check-updates && bun run bun-test",
-        "npm-release": "npm install && npm update && npx npm-check-updates && npm test",
-        "bun-dev": "bun run build && bun x http-server build",
-        "npm-dev": "npm run build && npx http-server build",
-        "ctix": "npx ctix build --mode create -p ./tsconfig.json --start-from ./src --include src/**/*.ts"
-    },
+    "description": "an up and comming platform",
+    "homepage": "https://github.com/grayjay-sources/grayjay-source-pietsmietde",
+    "type": "module",
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/Bluscream/grayjay-source-pietsmietde.git"
+        "url": "git+https://github.com/grayjay-sources/grayjay-source-pietsmietde.git"
     },
     "keywords": [
         "pietsmiet.de",
-        "pietsmiet",
-        "grayjay"
+        "grayjay",
+        "plugin"
     ],
     "author": "Bluscream",
-    "contributors": [
-        "Kai DeLorenzo"
-    ],
-    "license": "WTFPL",
+    "license": "MIT",
     "bugs": {
-        "url": "https://github.com/Bluscream/grayjay-source-pietsmietde/issues/new"
+        "url": "https://github.com/grayjay-sources/grayjay-source-pietsmietde/issues"
     },
-    "homepage": "https://github.com/Bluscream/grayjay-source-pietsmietde/",
-    "peerDependencies": {
-        "typescript": "^5.1.3"
-    },
-    "type": "module",
+    "dependencies": {},
     "devDependencies": {
-        "@grayjay/plugin": "gitlab:kaidelorenzo/grayjay-plugin-types#4478f604519640c28c4cb19d74f7cc1e9af3619d",
-        "@types/jest": "^29.5.12",
-        "@types/mocha": "^10.0.7",
-        "@types/node": "^20.14.9",
-        "ctix": "^2.6.3",
-        "http-server": "^14.1.1",
-        "npm-check-updates": "^17.0.0"
+        "@types/node": "^22.10.2",
+        "@eslint/js": "^9.17.0",
+        "@types/eslint__js": "^8.42.3",
+        "eslint": "^9.17.0",
+        "typescript": "^5.7.2",
+        "typescript-eslint": "^8.18.2",
+        "@kaidelorenzo/grayjay-polyfill": "gitlab:kaidelorenzo/grayjay-polyfill#4a1aa06988cb65f3042d0d971621caa95a331bd2",
+        "@types/grayjay-source": "gitlab:kaidelorenzo/grayjay-plugin-types#1d1f2bd63d110fc8704295ba5e2ce245a2220fb1"
     },
-    "dependencies": {
-        "@fastify/merge-json-schemas": "github:fastify/merge-json-schemas"
+    "scripts": {
+        "test": "node --test",
+        "debug-build:node": "node src/utilities/build.js \"http://localhost:8080\"",
+        "debug-build:bun": "bun run src/utilities/build.js \"http://localhost:8080\"",
+        "debug-build:deno": "deno run --allow-read --allow-write --allow-env --allow-run src/utilities/build.js \"http://localhost:8080\"",
+        "build:node": "node src/utilities/build.js",
+        "build:bun": "bun run src/utilities/build.js",
+        "build:deno": "deno run --allow-read --allow-write --allow-env --allow-run src/utilities/build.js",
+        "dev:node": "node src/utilities/dev.js",
+        "dev:bun": "bun run src/utilities/dev.js",
+        "dev:deno": "deno run --allow-read --allow-env --allow-run src/utilities/dev.js",
+        "lint:node": "npx eslint .",
+        "lint:bun": "bunx eslint .",
+        "lint:deno": "deno lint",
+        "release:node": "node src/utilities/release.js",
+        "release:bun": "bun run src/utilities/release.js",
+        "release:deno": "deno run --allow-read --allow-env --allow-run src/utilities/release.js"
     }
 }

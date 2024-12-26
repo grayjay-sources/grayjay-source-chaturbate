@@ -1,11 +1,11 @@
-node_modules/
-*-generated/
+node_modules
 *.js
 *.js.map
-*.bak
-*.har
 
+tsconfig.tsbuildinfo
+bun.lockb
+package-lock.json
 
-
-!dist/*
-dist/dev-config.json
+_dist
+build/types.ts
+build/script.ts
