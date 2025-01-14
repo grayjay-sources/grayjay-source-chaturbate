@@ -2,7 +2,7 @@ import { createServer } from "node:http"
 import { networkInterfaces } from "node:os"
 import { readFile } from "node:fs/promises"
 
-const PORT = 8080
+const PORT = 8084
 
 // Define a map of files to serve
 const files = {
