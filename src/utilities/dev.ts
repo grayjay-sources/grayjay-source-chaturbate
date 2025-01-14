@@ -15,11 +15,7 @@ function debug_build(env: Runtime){
             execFileSync("bun", ["run", "debug-build:bun"], { stdio: 'inherit' })
             break
         case "node":
-            if (process.platform === "win32") {
-                execFileSync("cmd", ["npm", "run", "debug-build:node"], { stdio: 'inherit' });
-            } else {
-                execFileSync("npm", ["run", "debug-build:node"], { stdio: 'inherit' })
-            }
+            execFileSync("npm", ["run", "debug-build:node"], { shell: true, encoding: 'utf-8', stdio: 'inherit' })
             break
         case "unknown":
             throw new Error("unknown environment")
