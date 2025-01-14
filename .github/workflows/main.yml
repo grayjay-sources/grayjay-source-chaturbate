@@ -4,6 +4,16 @@ on:
   push:
     tags:
       - "*"
+  workflow_dispatch:
+    inputs:
+      logLevel:
+        description: 'Log level'
+        required: true
+        default: 'warning'
+      environment:
+        description: 'Environment to deploy'
+        required: false
+        default: 'staging'
 
 jobs:
   build-and-release:
