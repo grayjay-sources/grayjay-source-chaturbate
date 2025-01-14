@@ -40,7 +40,8 @@ const URL_ICON = `${URL_BASE}/assets/pietsmiet/brand/icon.svg`;
 const URL_ICON_PNG = "https://i.vgy.me/CZ2jjB.png" as const // Todo: Find png on their website or implement svg parsing into GrayJay @Kelvin-FUTO
 const URL_BANNER = `${URL_BASE}/assets/pietsmiet/brand/wordmark-plain-light-detail.svg`;
 const URL_BANNER_PNG = "https://i.imgur.com/8D68cRq.png"; // Todo: Find png on their website or implement svg parsing into GrayJay @Kelvin-FUTO
-const URL_PLACEHOLDER_AVATAR = `${URL_BASE}/assets/pietsmiet/placeholder-1-1.jpg`
+const URL_PLACEHOLDER_AVATAR = `${URL_BASE}/assets/pietsmiet/placeholder-1-1.jpg`;
+const URL_PLACEHOLDER_THUMBNAIL = `${URL_BASE}/storage/images/static/placeholder-16-9.jpg`;
 
 const REGEX_VIDEO_URL = /https:\/\/www\.pietsmiet\.de\/videos\/(\d+)(.*)/; // /https:\/\/www\.pietsmiet\.de\/videos\/(.*)/;
 const REGEX_CHANNEL_URL = /https:\/\/www\.pietsmiet\.de\/videos\/channels\/(.*)/;
@@ -66,7 +67,9 @@ const channelIcons = { // Todo: find a way to get these dynamically
 	12: "https://yt3.googleusercontent.com/ytc/AIdro_kej_tg4mojF1qht3fNepeKyR10sAlVK4oBwUYL2hAeSg=s176-c-k-c0x00ffffff-no-rj", // @PietSmietBest
 	37: URL_ICON_PNG, // @pietsmietde
 	44: "https://yt3.googleusercontent.com/ytc/AIdro_nnAWki_jzSkHEzvkkT7TDlb-WxDBIc-rcqhFoEsp0tMg=s176-c-k-c0x00ffffff-no-rj" // @pietsmietlive
-} as const
+} as const;
+
+const fallbackThumbnails = new Thumbnails([new Thumbnail(URL_PLACEHOLDER_THUMBNAIL, 713)]);
 
 function has_channel_icon(channelId: number): channelId is keyof typeof channelIcons {
 	return Object.keys(channelIcons).includes(channelId.toString())
@@ -78,7 +81,7 @@ let local_settings: Settings
 
 let yt: Youtube
 let errorLog = "";
-const logErrors = true;
+const logErrors = false;
 //#endregion
 
 //#region source methods
@@ -132,7 +135,7 @@ class Utils {
 		try {
 			if (logErrors) errorLog += `${errorLog}\n${message}`
 		} catch (error) {
-			log(error)
+			console.log(error)
 		}
 		return formattedMessage;
 	}
@@ -230,15 +233,16 @@ class Utils {
 		name = name ?? PLATFORM_SHORT;
 		log(name)
 		for (const url of url_s) {
+			let response;
 			try {
 				utils.log(`GET ${url}`);
-				const response = http.GET(url, headers, false);
+				response = http.GET(url, headers, false);
 				if (!response.isOk) {
 					utils.error(`Failed to get ${url} [${response.code}]`, null, true);
 				}
 				return response;
 			} catch (error) {
-				utils.error(`Error fetching video info: ${url}:`, error, true);
+				utils.error(`Error fetching video info: ${url}: (${response})`, error, true);
 			}
 		}
 		utils.error(`${url_s.length} URLs failed to fetch`, null, true);
@@ -286,7 +290,7 @@ function parseIdFromSlug(slug: string) {
 	return parseInt(slug.split("-", 1)[0] ?? "");
 }
 function parseThumbnailVariations(variationsDict: { readonly url: string, readonly height: number }[]) {
-	return new Thumbnails(variationsDict.map(y => new Thumbnail(y.url, y.height)))
+	return variationsDict ? new Thumbnails(variationsDict.map(y => new Thumbnail(y.url, y.height))) : fallbackThumbnails;
 }
 function parseAuthor(videoDict: {
 	readonly channels: {
@@ -425,19 +429,21 @@ function getVideoResults(page: number, playlists: number[] = []) {
 		url += "&playlists[]=" + playlists.join(",");
 	}
 	const results: HomeResponse = getProtectedJson(url);
-
-	return results.data.map(x => new PlatformVideo({
-		id: getPlatformId(x.id),
-		name: x.title,
-		thumbnails: parseThumbnailVariations(x.thumbnail.variations),
-		author: parseAuthor(x),
-		datetime: parseDate(x.publish_date),
-		duration: x.duration,
-		// viewCount: 0, // todo: fix
-		url: URL_BASE + x.url,
-		shareUrl: x.short_url,
-		isLive: false
-	}))
+	return results.data.map(x => {
+		// console.log(x);
+		return new PlatformVideo({
+			id: getPlatformId(x.id),
+			name: x.title,
+			thumbnails: parseThumbnailVariations(x.thumbnail?.variations),
+			author: parseAuthor(x),
+			datetime: parseDate(x.publish_date),
+			duration: x.duration,
+			// viewCount: 0, // todo: fix
+			url: URL_BASE + x.url,
+			shareUrl: x.short_url,
+			isLive: false
+		})
+	})
 }
 
 function getSearchCapabilities() {
@@ -574,7 +580,7 @@ function getContentDetails(url: string) {
 	const pvd = {
 		id: getPlatformId(detailResults.video.id), // streamsResults.tracks[0]
 		name: detailResults.video.title,
-		thumbnails: parseThumbnailVariations(detailResults.video.thumbnail.variations),
+		thumbnails: parseThumbnailVariations(detailResults.video.thumbnail?.variations),
 		author: parseAuthor(detailResults.video),
 		datetime: parseDate(detailResults.video.publish_date),
 		duration: detailResults.video.duration,
@@ -589,8 +595,8 @@ function getContentDetails(url: string) {
 		viewCount: 0
 	}
 	// PSProxy
-
-	if (local_settings.use_yt_proxy) {
+	log(`Using YT Proxy: ${local_settings.use_yt_proxy}`);
+	if (local_settings.use_yt_proxy ?? true) {
 		try {
 			const ytdata = yt.get(video_id)
 			if (ytdata === null) { utils.error(`Unable to fetch Youtube data for ${video_id}`, null, false); return new PlatformVideoDetails(pvd); }

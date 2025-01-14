@@ -21,7 +21,10 @@
 	"allowUrls": [
 		"pietsmiet.de",
 		"www.pietsmiet.de",
-		"*.minopia.de"
+		"minopia.de",
+		"*.minopia.de",
+		"ytapi.minopia.de",
+		"ytapi2.minopia.de"
 	],
 	"subscriptionRateLimit": 120,
 	"authentication": {
