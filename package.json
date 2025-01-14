@@ -26,7 +26,7 @@
         "eslint": "^9.17.0",
         "typescript": "^5.7.2",
         "typescript-eslint": "^8.18.2",
-        "@kaidelorenzo/grayjay-polyfill": "gitlab:kaidelorenzo/grayjay-polyfill#4a1aa06988cb65f3042d0d971621caa95a331bd2",
+        "@kaidelorenzo/grayjay-polyfill": "gitlab:kaidelorenzo/grayjay-polyfill#2d1de8e0ca6895477ac6e3d1e5ef82ef4c17073e",
         "@types/grayjay-source": "gitlab:kaidelorenzo/grayjay-plugin-types#1d1f2bd63d110fc8704295ba5e2ce245a2220fb1"
     },
     "scripts": {
