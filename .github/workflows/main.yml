@@ -10,7 +10,7 @@ jobs:
     name: Build and Create Release
     runs-on: ubuntu-latest
     env:
-      PASSPHRASE: ${{ secrets.PASSPHRASE }} # Ensure PASSPHRASE is stored in GitHub Secrets
+      # PASSPHRASE: ${{ secrets.PASSPHRASE }} # Ensure PASSPHRASE is stored in GitHub Secrets
       SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
 
     steps:
@@ -42,7 +42,8 @@ jobs:
 
       - name: Sign files
         run: |
-          node src/utilities/sign.js build/config.json build/script.js private-key.pem "$PASSPHRASE"
+          node src/utilities/sign.js build/config.json build/script.js private-key.pem
+        # "$PASSPHRASE"
 
       - name: Release
         uses: softprops/action-gh-release@v2
