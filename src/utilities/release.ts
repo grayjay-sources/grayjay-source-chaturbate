@@ -17,7 +17,7 @@ function update_packages(env: Runtime) {
             execFileSync("bun", ["install"], { stdio: 'inherit' })
             break
         case "node":
-            execFileSync("npm", ["update"], { stdio: 'inherit' })
+            execFileSync("npm", ["update"], { shell: true, encoding: 'utf-8', stdio: 'inherit' })
             break
         case "unknown":
             throw new Error("unknown environment")
@@ -35,7 +35,7 @@ function build(env: Runtime){
             execFileSync("bun", ["run", "build:bun"], { stdio: 'inherit' })
             break
         case "node":
-            execFileSync("npm", ["run", "build:node"], { stdio: 'inherit' })
+            execFileSync("npm", ["run", "build:node"], { shell: true, encoding: 'utf-8', stdio: 'inherit' })
             break
         case "unknown":
             throw new Error("unknown environment")
@@ -53,7 +53,7 @@ function lint(env: Runtime){
             execFileSync("bun", ["run", "lint:bun"], { stdio: 'inherit' })
             break
         case "node":
-            execFileSync("npm", ["run", "lint:node"], { stdio: 'inherit' })
+            execFileSync("npm", ["run", "lint:node"], { shell: true, encoding: 'utf-8', stdio: 'inherit' })
             break
         case "unknown":
             throw new Error("unknown environment")
@@ -71,7 +71,7 @@ function test(env: Runtime){
             console.log("tests not currently supported in Bun")
             break
         case "node":
-            execFileSync("npm", ["test"], { stdio: 'inherit' })
+            execFileSync("npm", ["test"], { shell: true, encoding: 'utf-8', stdio: 'inherit' })
             break
         case "unknown":
             throw new Error("unknown environment")
