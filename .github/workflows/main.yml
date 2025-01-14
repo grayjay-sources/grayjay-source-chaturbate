@@ -52,4 +52,5 @@ jobs:
           files: |
             build/config.json
             build/script.js
+          token: ${{ secrets.GH_TOKEN }}
 
