@@ -1,5 +1,7 @@
 node_modules
 *.js
+!/src/script.js
+!/src/ref.js
 *.js.map
 
 tsconfig.tsbuildinfo
