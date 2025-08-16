@@ -1,6 +1,8 @@
 const PLATFORM = "Chaturbate";
 const PLATFORM_SHORT = "CU";
 
+
+
 const REGEX_PATTERNS = {
 	urls: {
 		roomStandard: /^https?:\/\/(?:www\.)?chaturbate\.com\/([a-zA-Z0-9_-]+)\/?$/,
@@ -535,7 +537,7 @@ function parseGender(gender) {
 }
 
 function parseThumbnailVariations(roomInfo) {
-	return new Thumbnails([new Thumbnail(roomInfo.img, null)]);
+	return new Thumbnails([new Thumbnail(roomInfo.img, 0)]);
 }
 
 function parseAuthor(roomInfo) {
@@ -559,17 +561,12 @@ function parseAuthor(roomInfo) {
 		authorName += ` (${gender})`;
 	}
 
-	// Add follower count if available
-	if (roomInfo.num_followers > 0) {
-		authorName += ` • ${roomInfo.num_followers.toLocaleString()} followers`;
-	}
-
 	return new PlatformAuthorLink(
 		getPlatformId(roomInfo.username),
 		authorName,
 		URL_BASE.addPaths(roomInfo.username).toString(),
 		roomInfo.img,
-		null
+		roomInfo.num_followers || 0
 	);
 }
 
@@ -761,7 +758,7 @@ function createVideoSources(roomSlug) {
 			})
 		];
 
-		return videoSources;
+		return new VideoSourceDescriptor(videoSources);
 
 	} catch (error) {
 		throw new ScriptException(`Failed to create video sources: ${error.message}`);
@@ -782,13 +779,14 @@ source.enable = function (_config, _settings, _savedState) {
 
 	sourceConfig = sourceUtils.isNullOrEmpty(_config) ? sourceConfig : _config;
 
-	// Always ensure default settings are set, then merge with provided settings
+	// Use the engine's parseSettings method to properly parse settings
+	const parsedSettings = parseSettings(_settings);
 	sourceSettings = {
 		"limit_rooms": 90,
 		"log_to_console": false,
 		"log_to_bridge": false,
 		"log_to_toast": false,
-		...(_settings || {})
+		...parsedSettings
 	};
 
 	if (_savedState !== null && _savedState !== undefined) {
@@ -825,7 +823,7 @@ source.getHome = function () {
 	sourceUtils.log("source.getHome() called");
 	const results = getVideoResults(0);
 	sourceUtils.log(`Home results: ${results.length} videos found`);
-	return new ContentPager(results, true);
+	return new VideoPager(results, true);
 };
 
 class HomePager extends VideoPager {
@@ -925,31 +923,23 @@ source.searchSuggestions = function (query) {
 
 source.getSearchCapabilities = () => {
 	sourceUtils.log("source.getSearchCapabilities()");
-	return {
-		types: [Type.Feed.Mixed],
-		sorts: [Type.Order.Chronological, Type.Order.Popularity],
-		filters: [
-			{
-				id: "gender",
-				name: "Gender",
-				options: [
-					{ id: "f", name: "Female" },
-					{ id: "m", name: "Male" },
-					{ id: "s", name: "Shemale" },
-					{ id: "c", name: "Couple" }
-				]
-			},
-			{
-				id: "show_type",
-				name: "Show Type",
-				options: [
-					{ id: "public", name: "Public" },
-					{ id: "private", name: "Private" },
-					{ id: "spy", name: "Spy" }
-				]
-			}
+	return new ResultCapabilities(
+		[Type.Feed.Mixed],
+		[Type.Order.Chronological, Type.Order.Popularity],
+		[
+			new FilterGroup("Gender", [
+				new FilterCapability("Female", "f", "f"),
+				new FilterCapability("Male", "m", "m"),
+				new FilterCapability("Shemale", "s", "s"),
+				new FilterCapability("Couple", "c", "c")
+			], false, "gender"),
+			new FilterGroup("Show Type", [
+				new FilterCapability("Public", "public", "public"),
+				new FilterCapability("Private", "private", "private"),
+				new FilterCapability("Spy", "spy", "spy")
+			], false, "show_type")
 		]
-	};
+	);
 };
 
 source.search = function (query, type, order, filters, continuationToken) {
@@ -1030,7 +1020,7 @@ source.search = function (query, type, order, filters, continuationToken) {
 
 		const nextToken = hasMore ? (offset + sourceSettings["limit_rooms"]).toString() : null;
 
-		return new ChaturbateSearchContentPager(videos, hasMore, {
+		return new ContentPager(videos, hasMore, {
 			query: query,
 			type: type,
 			order: order,
@@ -1045,55 +1035,15 @@ source.search = function (query, type, order, filters, continuationToken) {
 	}
 };
 
-class ChaturbateSearchContentPager extends ContentPager {
-	constructor(results, hasMore, context) {
-		super(results, hasMore, context);
-	}
 
-	nextPage() {
-		return source.search(
-			this.context.query,
-			this.context.type,
-			this.context.order,
-			this.context.filters,
-			this.context.continuationToken
-		);
-	}
-
-	getTotalResults() {
-		return this.context.totalResults || 0;
-	}
-
-	getCurrentOffset() {
-		return this.context.currentOffset || 0;
-	}
-}
-
-class ChaturbateChannelSearchPager extends ChannelPager {
-	constructor(results, hasMore, context) {
-		super(results, hasMore, context);
-	}
-
-	nextPage() {
-		return new ChaturbateChannelSearchPager([], false, this.context);
-	}
-
-	getTotalResults() {
-		return this.context.totalResults || 0;
-	}
-
-	getQuery() {
-		return this.context.query || "";
-	}
-}
 
 source.getSearchChannelContentsCapabilities = function () {
 	sourceUtils.log("source.getSearchChannelContentsCapabilities()");
-	return {
-		types: [Type.Feed.Mixed],
-		sorts: [Type.Order.Chronological],
-		filters: []
-	};
+	return new ResultCapabilities(
+		[Type.Feed.Mixed],
+		[Type.Order.Chronological],
+		[]
+	);
 };
 
 source.searchChannelContents = function (channelUrl, query, type, order, filters) {
@@ -1107,7 +1057,7 @@ source.searchChannels = function (query) {
 
 	try {
 		if (!query || query.trim().length === 0) {
-			return new ChaturbateChannelSearchPager([], false, { query: query });
+			return new ChannelPager([], false, { query: query });
 		}
 
 		const searchParams = {
@@ -1124,7 +1074,7 @@ source.searchChannels = function (query) {
 		sourceUtils.log(`Channel search response for "${query}":`, searchResponse);
 
 		if (!searchResponse.rooms || !Array.isArray(searchResponse.rooms)) {
-			return new ChaturbateChannelSearchPager([], false, {
+			return new ChannelPager([], false, {
 				query: query,
 				error: "Invalid search response format"
 			});
@@ -1161,14 +1111,14 @@ source.searchChannels = function (query) {
 
 		sourceUtils.log(`Found ${uniqueChannels.length} unique channels for query "${query}"`);
 
-		return new ChaturbateChannelSearchPager(uniqueChannels, false, {
+		return new ChannelPager(uniqueChannels, false, {
 			query: query,
 			totalResults: uniqueChannels.length
 		});
 
 	} catch (error) {
 		sourceUtils.log(`Channel search error: ${error.message}`);
-		return new ChaturbateChannelSearchPager([], false, {
+		return new ChannelPager([], false, {
 			query: query,
 			error: error.message
 		});
@@ -1294,13 +1244,13 @@ source.getContentDetails = function (url) {
 			sourceUtils.log(`Failed to create video sources for room ${roomSlug}: ${error.message}`);
 			// If room is offline, create a placeholder video source
 			if (error.message.includes('offline')) {
-				videoSources = [
+				videoSources = new VideoSourceDescriptor([
 					new HLSSource({
 						url: `https://thumb.live.mmcdn.com/riw/${roomSlug}.jpg`,
 						name: "Offline - No Stream Available",
 						priority: false
 					})
-				];
+				]);
 			} else {
 				// Re-throw other errors
 				throw error;
@@ -1351,11 +1301,11 @@ source.getContentDetails = function (url) {
 			duration: -1,
 			viewCount: room.viewers || 0,
 			url: url,
-			sharedUrl: url,
+			shareUrl: url,
 			isLive: isLive,
 			description: description,
-			video: new VideoSourceDescriptor(videoSources),
-			live: isLive ? videoSources[0] : null,
+			video: videoSources,
+			live: isLive ? videoSources.videoSources[0] : null,
 			subtitles: [],
 			rating: null
 		});
@@ -1417,55 +1367,7 @@ source.getLiveChatWindow = function (url) {
 				"#shareTab",
 				"#user_information",
 			],
-			removeElementsInterval: [
-			],
-			css: `
-				body {
-					margin: 0 !important;
-					padding: 0 !important;
-					overflow: hidden !important;
-					position: fixed !important;
-					top: 0 !important;
-					left: 0 !important;
-					width: 100vw !important;
-					height: 100vh !important;
-				}
-				
-				html {
-					overflow: hidden !important;
-					height: 100vh !important;
-				}
-				
-				#ChatTabContainer {
-					position: fixed !important;
-					top: 0 !important;
-					left: 0 !important;
-					width: 100vw !important;
-					height: 100vh !important;
-					margin: 0 !important;
-					padding: 0 !important;
-					overflow: auto !important;
-					z-index: 9999 !important;
-					background: #fff !important;
-				}
-				
-				.BaseTabsContainer {
-					position: fixed !important;
-					top: 0 !important;
-					left: 0 !important;
-					width: 100vw !important;
-					height: 100vh !important;
-					margin: 0 !important;
-					padding: 0 !important;
-					overflow: auto !important;
-					z-index: 9999 !important;
-					background: #fff !important;
-				}
-				
-				* {
-					box-sizing: border-box !important;
-				}
-			`
+			removeElementsInterval: []
 		};
 	} catch (error) {
 		throw new ScriptException(`Failed to get live chat window: ${error.message}`);
