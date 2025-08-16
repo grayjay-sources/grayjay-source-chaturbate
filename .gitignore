@@ -11,3 +11,4 @@ package-lock.json
 _dist
 build/types.ts
 build/script.ts
+.references/

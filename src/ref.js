@@ -34,7 +34,8 @@ let Type = {
     Text: {
         RAW: 0,
         HTML: 1,
-        MARKUP: 2
+        MARKUP: 2,
+        CODE: 3
     },
     Chapter: {
         NORMAL: 0,
@@ -64,7 +65,7 @@ let Language = {
 
 class ScriptException extends Error {
     constructor(type, msg) {
-        if(arguments.length == 1) {
+        if (arguments.length == 1) {
             super(arguments[0]);
             this.plugin_type = "ScriptException";
             this.message = arguments[0];
@@ -102,6 +103,12 @@ class CriticalException extends ScriptException {
 class UnavailableException extends ScriptException {
     constructor(msg) {
         super("UnavailableException", msg);
+    }
+}
+class ReloadRequiredException extends ScriptException {
+    constructor(msg, reloadData) {
+        super("ReloadRequiredException", msg);
+        this.reloadData = reloadData;
     }
 }
 class AgeException extends ScriptException {
@@ -153,8 +160,8 @@ class ResultCapabilities {
 }
 class FilterGroup {
     constructor(name, filters, isMultiSelect, id) {
-        if(!name) throw new ScriptException("No name for filter group");
-        if(!filters) throw new ScriptException("No filter provided");
+        if (!name) throw new ScriptException("No name for filter group");
+        if (!filters) throw new ScriptException("No filter provided");
 
         this.name = name
         this.filters = filters
@@ -164,8 +171,8 @@ class FilterGroup {
 }
 class FilterCapability {
     constructor(name, value, id) {
-        if(!name) throw new ScriptException("No name for filter");
-        if(!value) throw new ScriptException("No filter value");
+        if (!name) throw new ScriptException("No name for filter");
+        if (!value) throw new ScriptException("No filter value");
 
         this.name = name;
         this.value = value;
@@ -180,9 +187,9 @@ class PlatformAuthorLink {
         this.name = name ?? ""; //string
         this.url = url ?? ""; //string
         this.thumbnail = thumbnail; //string
-        if(subscribers)
+        if (subscribers)
             this.subscribers = subscribers;
-        if(membershipUrl)
+        if (membershipUrl)
             this.membershipUrl = membershipUrl ?? null; //string (for backcompat)
     }
 }
@@ -192,9 +199,9 @@ class PlatformAuthorMembershipLink {
         this.name = name ?? ""; //string
         this.url = url ?? ""; //string
         this.thumbnail = thumbnail; //string
-        if(subscribers)
+        if (subscribers)
             this.subscribers = subscribers;
-        if(membershipUrl)
+        if (membershipUrl)
             this.membershipUrl = membershipUrl ?? null; //string
     }
 }
@@ -293,15 +300,39 @@ class PlatformPostDetails extends PlatformPost {
     }
 }
 
-class PlatformArticleDetails extends PlatformContent {
+class PlatformWeb extends PlatformContent {
+    constructor(obj) {
+        super(obj, 7);
+        obj = obj ?? {};
+        this.plugin_type = "PlatformWeb";
+    }
+}
+class PlatformWebDetails extends PlatformWeb {
+    constructor(obj) {
+        super(obj, 7);
+        obj = obj ?? {};
+        this.plugin_type = "PlatformWebDetails";
+        this.html = obj.html;
+    }
+}
+
+class PlatformArticle extends PlatformContent {
+    constructor(obj) {
+        super(obj, 3);
+        obj = obj ?? {};
+        this.plugin_type = "PlatformArticle";
+        this.rating = obj.rating ?? new RatingLikes(-1);
+        this.summary = obj.summary ?? "";
+        this.thumbnails = obj.thumbnails ?? new Thumbnails([]);
+    }
+}
+class PlatformArticleDetails extends PlatformArticle {
     constructor(obj) {
         super(obj, 3);
         obj = obj ?? {};
         this.plugin_type = "PlatformArticleDetails";
         this.rating = obj.rating ?? new RatingLikes(-1);
-        this.summary = obj.summary ?? "";
         this.segments = obj.segments ?? [];
-        this.thumbnails = obj.thumbnails ?? new Thumbnails([]);
     }
 }
 class ArticleSegment {
@@ -317,9 +348,17 @@ class ArticleTextSegment extends ArticleSegment {
     }
 }
 class ArticleImagesSegment extends ArticleSegment {
-    constructor(images) {
+    constructor(images, caption) {
         super(2);
         this.images = images;
+        this.caption = caption;
+    }
+}
+class ArticleHeaderSegment extends ArticleSegment {
+    constructor(content, level) {
+        super(3);
+        this.level = level;
+        this.content = content;
     }
 }
 class ArticleNestedSegment extends ArticleSegment {
@@ -337,7 +376,7 @@ class VideoSourceDescriptor {
         this.plugin_type = "MuxVideoSourceDescriptor";
         this.isUnMuxed = false;
 
-        if(obj.constructor === Array)
+        if (obj.constructor === Array)
             this.videoSources = obj;
         else
             this.videoSources = obj.videoSources ?? [];
@@ -349,7 +388,7 @@ class UnMuxVideoSourceDescriptor {
         this.plugin_type = "UnMuxVideoSourceDescriptor";
         this.isUnMuxed = true;
 
-        if(videoSourcesOrObj.constructor === Array) {
+        if (videoSourcesOrObj.constructor === Array) {
             this.videoSources = videoSourcesOrObj;
             this.audioSources = audioSources;
         }
@@ -372,7 +411,7 @@ class VideoUrlSource {
         this.bitrate = obj.bitrate ?? 0;
         this.duration = obj.duration ?? 0;
         this.url = obj.url;
-        if(obj.requestModifier)
+        if (obj.requestModifier)
             this.requestModifier = obj.requestModifier;
     }
 }
@@ -382,7 +421,7 @@ class VideoUrlWidevineSource extends VideoUrlSource {
         this.plugin_type = "VideoUrlWidevineSource";
 
         this.licenseUri = obj.licenseUri;
-        if(obj.getLicenseRequestExecutor)
+        if (obj.getLicenseRequestExecutor)
             this.getLicenseRequestExecutor = obj.getLicenseRequestExecutor;
     }
 }
@@ -391,11 +430,11 @@ class VideoUrlRangeSource extends VideoUrlSource {
         super(obj);
         this.plugin_type = "VideoUrlRangeSource";
 
-		this.itagId = obj.itagId ?? null;
-		this.initStart = obj.initStart ?? null;
-		this.initEnd = obj.initEnd ?? null;
-		this.indexStart = obj.indexStart ?? null;
-		this.indexEnd = obj.indexEnd ?? null;
+        this.itagId = obj.itagId ?? null;
+        this.initStart = obj.initStart ?? null;
+        this.initEnd = obj.initEnd ?? null;
+        this.indexStart = obj.indexStart ?? null;
+        this.indexEnd = obj.indexEnd ?? null;
     }
 }
 class AudioUrlSource {
@@ -409,7 +448,7 @@ class AudioUrlSource {
         this.duration = obj.duration ?? 0;
         this.url = obj.url;
         this.language = obj.language ?? Language.UNKNOWN;
-        if(obj.requestModifier)
+        if (obj.requestModifier)
             this.requestModifier = obj.requestModifier;
     }
 }
@@ -419,21 +458,21 @@ class AudioUrlWidevineSource extends AudioUrlSource {
         this.plugin_type = "AudioUrlWidevineSource";
 
         this.licenseUri = obj.licenseUri;
-        if(obj.getLicenseRequestExecutor)
+        if (obj.getLicenseRequestExecutor)
             this.getLicenseRequestExecutor = obj.getLicenseRequestExecutor;
 
         // deprecated api conversion
-        if(obj.bearerToken) {
+        if (obj.bearerToken) {
             this.getLicenseRequestExecutor = () => {
                 return {
                     executeRequest: (url, _headers, _method, license_request_data) => {
                         return http.POST(
-                           url,
-                           license_request_data,
-                           { Authorization: `Bearer ${obj.bearerToken}` },
-                           false,
-                           true
-                       ).body
+                            url,
+                            license_request_data,
+                            { Authorization: `Bearer ${obj.bearerToken}` },
+                            false,
+                            true
+                        ).body
                     }
                 }
             }
@@ -445,12 +484,12 @@ class AudioUrlRangeSource extends AudioUrlSource {
         super(obj);
         this.plugin_type = "AudioUrlRangeSource";
 
-		this.itagId = obj.itagId ?? null;
-		this.initStart = obj.initStart ?? null;
-		this.initEnd = obj.initEnd ?? null;
-		this.indexStart = obj.indexStart ?? null;
-		this.indexEnd = obj.indexEnd ?? null;
-		this.audioChannels = obj.audioChannels ?? 2;
+        this.itagId = obj.itagId ?? null;
+        this.initStart = obj.initStart ?? null;
+        this.initEnd = obj.initEnd ?? null;
+        this.indexStart = obj.indexStart ?? null;
+        this.indexEnd = obj.indexEnd ?? null;
+        this.audioChannels = obj.audioChannels ?? 2;
     }
 }
 class HLSSource {
@@ -461,9 +500,9 @@ class HLSSource {
         this.duration = obj.duration ?? 0;
         this.url = obj.url;
         this.priority = obj.priority ?? false;
-        if(obj.language)
+        if (obj.language)
             this.language = obj.language;
-        if(obj.requestModifier)
+        if (obj.requestModifier)
             this.requestModifier = obj.requestModifier;
     }
 }
@@ -474,9 +513,9 @@ class DashSource {
         this.name = obj.name ?? "Dash";
         this.duration = obj.duration ?? 0;
         this.url = obj.url;
-        if(obj.language)
+        if (obj.language)
             this.language = obj.language;
-        if(obj.requestModifier)
+        if (obj.requestModifier)
             this.requestModifier = obj.requestModifier;
     }
 }
@@ -486,7 +525,7 @@ class DashWidevineSource extends DashSource {
         this.plugin_type = "DashWidevineSource";
 
         this.licenseUri = obj.licenseUri;
-        if(obj.getLicenseRequestExecutor)
+        if (obj.getLicenseRequestExecutor)
             this.getLicenseRequestExecutor = obj.getLicenseRequestExecutor;
     }
 }
@@ -501,7 +540,7 @@ class DashManifestRawSource {
         this.duration = obj.duration ?? 0;
         this.url = obj.url;
         this.language = obj.language ?? Language.UNKNOWN;
-        if(obj.requestModifier)
+        if (obj.requestModifier)
             this.requestModifier = obj.requestModifier;
     }
 }
@@ -518,7 +557,7 @@ class DashManifestRawAudioSource {
         this.url = obj.url;
         this.language = obj.language ?? Language.UNKNOWN;
         this.manifest = obj.manifest ?? null;
-        if(obj.requestModifier)
+        if (obj.requestModifier)
             this.requestModifier = obj.requestModifier;
     }
 }
@@ -544,7 +583,7 @@ class PlatformChannel {
         this.description = obj.description; //string
         this.url = obj.url ?? ""; //string
         this.urlAlternatives = obj.urlAlternatives ?? [];
-        this.links = obj.links ?? {  } //Map<string,string>
+        this.links = obj.links ?? {} //Map<string,string>
     }
 }
 
@@ -557,7 +596,7 @@ class PlatformPlaylist extends PlatformContent {
         this.thumbnail = obj.thumbnail;
     }
 }
-class PlatformPlaylistDetails extends PlatformPlaylist  {
+class PlatformPlaylistDetails extends PlatformPlaylist {
     constructor(obj) {
         super(obj);
         this.plugin_type = "PlatformPlaylistDetails";
@@ -574,7 +613,7 @@ class RatingLikes {
     }
 }
 class RatingLikesDislikes {
-    constructor(likes,dislikes) {
+    constructor(likes, dislikes) {
         this.type = 2;
         this.likes = likes;
         this.dislikes = dislikes;
@@ -597,6 +636,8 @@ class PlatformComment {
         this.date = obj.date ?? 0;
         this.replyCount = obj.replyCount ?? 0;
         this.context = obj.context ?? {};
+        if (obj.getReplies)
+            this.getReplies = obj.getReplies;
     }
 }
 
@@ -609,7 +650,7 @@ class Comment extends PlatformComment {
 
 class PlaybackTracker {
     constructor(interval) {
-        this.nextRequest = interval ?? 10*1000;
+        this.nextRequest = interval ?? 10 * 1000;
     }
     setProgress(seconds) {
         throw new ScriptImplementationException("Missing required setProgress(seconds) on PlaybackTracker");
@@ -668,11 +709,12 @@ class LiveEventViewCount extends LiveEvent {
     }
 }
 class LiveEventRaid extends LiveEvent {
-    constructor(targetUrl, targetName, targetThumbnail) {
+    constructor(targetUrl, targetName, targetThumbnail, isOutgoing) {
         super(100);
         this.targetUrl = targetUrl;
         this.targetName = targetName;
         this.targetThumbnail = targetThumbnail;
+        this.isOutgoing = isOutgoing ?? true;
     }
 }
 
@@ -746,22 +788,24 @@ let plugin = {
 const source = {
     getHome() { return new ContentPager([], false, {}); },
 
-    enable(config){  },
-    disable() {},
+    enable(config) { },
+    disable() { },
 
-    searchSuggestions(query){ return []; },
-    getSearchCapabilities(){ return { types: [], sorts: [] }; },
-    search(query, type, order, filters){ return new ContentPager([], false, {}); }, //TODO
+    searchSuggestions(query) { return []; },
+    getSearchCapabilities() { return { types: [], sorts: [] }; },
+    search(query, type, order, filters) { return new ContentPager([], false, {}); }, //TODO
     //OPTIONAL getSearchChannelContentsCapabilities(){ return { types: [], sorts: [] }; },
     //OPTIONAL searchChannelContents(channelUrl, query, type, order, filters){ return new Pager([], false, {}); }, //TODO
 
-    isChannelUrl(url){ return false; },
-    getChannel(url){ return null; },
-    getChannelCapabilities(){ return { types: [], sorts: [] }; },
+    isChannelUrl(url) { return false; },
+    getChannel(url) { return null; },
+    getChannelCapabilities() { return { types: [], sorts: [] }; },
     getChannelContents(url, type, order, filters) { return new ContentPager([], false, {}); },
 
-    isContentDetailsUrl(url){ return false; },
-    getContentDetails(url){  }, //TODO
+    isContentDetailsUrl(url) { return false; },
+    getContentDetails(url) { }, //TODO
+
+    getLiveChatWindow(url) { return new LiveChatWindow(url); }
 
     //OPTIONAL getComments(url){ return new Pager([], false, {}); }, //TODO
     //OPTIONAL getSubComments(comment){ return new Pager([], false, {}); }, //TODO
@@ -771,11 +815,11 @@ const source = {
 };
 
 function parseSettings(settings) {
-    if(!settings)
+    if (!settings)
         return {};
     let newSettings = {};
-    for(let key in settings) {
-        if(typeof settings[key] == "string")
+    for (let key in settings) {
+        if (typeof settings[key] == "string")
             newSettings[key] = JSON.parse(settings[key]);
         else
             newSettings[key] = settings[key];
@@ -784,9 +828,9 @@ function parseSettings(settings) {
 }
 
 function log(str) {
-    if(str) {
+    if (str) {
         console.log(str);
-        if(typeof str == "string")
+        if (typeof str == "string")
             bridge.log(str);
         else
             bridge.log(JSON.stringify(str, null, 4));
@@ -884,282 +928,303 @@ class URLSearchParams {
 var __REGEX_SPACE_CHARACTERS = /<%= spaceCharacters %>/g;
 var __btoa_TABLE = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 function btoa(input) {
-	input = String(input);
-	if (/[^\0-\xFF]/.test(input)) {
-		// Note: no need to special-case astral symbols here, as surrogates are
-		// matched, and the input is supposed to only contain ASCII anyway.
-		error(
-			'The string to be encoded contains characters outside of the ' +
-			'Latin1 range.'
-		);
-	}
-	var padding = input.length % 3;
-	var output = '';
-	var position = -1;
-	var a;
-	var b;
-	var c;
-	var buffer;
-	// Make sure any padding is handled outside of the loop.
-	var length = input.length - padding;
+    input = String(input);
+    if (/[^\0-\xFF]/.test(input)) {
+        // Note: no need to special-case astral symbols here, as surrogates are
+        // matched, and the input is supposed to only contain ASCII anyway.
+        error(
+            'The string to be encoded contains characters outside of the ' +
+            'Latin1 range.'
+        );
+    }
+    var padding = input.length % 3;
+    var output = '';
+    var position = -1;
+    var a;
+    var b;
+    var c;
+    var buffer;
+    // Make sure any padding is handled outside of the loop.
+    var length = input.length - padding;
 
-	while (++position < length) {
-		// Read three bytes, i.e. 24 bits.
-		a = input.charCodeAt(position) << 16;
-		b = input.charCodeAt(++position) << 8;
-		c = input.charCodeAt(++position);
-		buffer = a + b + c;
-		// Turn the 24 bits into four chunks of 6 bits each, and append the
-		// matching character for each of them to the output.
-		output += (
-			__btoa_TABLE.charAt(buffer >> 18 & 0x3F) +
-			__btoa_TABLE.charAt(buffer >> 12 & 0x3F) +
-			__btoa_TABLE.charAt(buffer >> 6 & 0x3F) +
-			__btoa_TABLE.charAt(buffer & 0x3F)
-		);
-	}
+    while (++position < length) {
+        // Read three bytes, i.e. 24 bits.
+        a = input.charCodeAt(position) << 16;
+        b = input.charCodeAt(++position) << 8;
+        c = input.charCodeAt(++position);
+        buffer = a + b + c;
+        // Turn the 24 bits into four chunks of 6 bits each, and append the
+        // matching character for each of them to the output.
+        output += (
+            __btoa_TABLE.charAt(buffer >> 18 & 0x3F) +
+            __btoa_TABLE.charAt(buffer >> 12 & 0x3F) +
+            __btoa_TABLE.charAt(buffer >> 6 & 0x3F) +
+            __btoa_TABLE.charAt(buffer & 0x3F)
+        );
+    }
 
-	if (padding == 2) {
-		a = input.charCodeAt(position) << 8;
-		b = input.charCodeAt(++position);
-		buffer = a + b;
-		output += (
-			__btoa_TABLE.charAt(buffer >> 10) +
-			__btoa_TABLE.charAt((buffer >> 4) & 0x3F) +
-			__btoa_TABLE.charAt((buffer << 2) & 0x3F) +
-			'='
-		);
-	} else if (padding == 1) {
-		buffer = input.charCodeAt(position);
-		output += (
-			__btoa_TABLE.charAt(buffer >> 2) +
-			__btoa_TABLE.charAt((buffer << 4) & 0x3F) +
-			'=='
-		);
-	}
+    if (padding == 2) {
+        a = input.charCodeAt(position) << 8;
+        b = input.charCodeAt(++position);
+        buffer = a + b;
+        output += (
+            __btoa_TABLE.charAt(buffer >> 10) +
+            __btoa_TABLE.charAt((buffer >> 4) & 0x3F) +
+            __btoa_TABLE.charAt((buffer << 2) & 0x3F) +
+            '='
+        );
+    } else if (padding == 1) {
+        buffer = input.charCodeAt(position);
+        output += (
+            __btoa_TABLE.charAt(buffer >> 2) +
+            __btoa_TABLE.charAt((buffer << 4) & 0x3F) +
+            '=='
+        );
+    }
 
-	return output;
+    return output;
 };
 function atob(input) {
-	input = String(input)
-		.replace(__REGEX_SPACE_CHARACTERS, '');
-	var length = input.length;
-	if (length % 4 == 0) {
-		input = input.replace(/==?$/, '');
-		length = input.length;
-	}
-	if (
-		length % 4 == 1 ||
-		// http://whatwg.org/C#alphanumeric-ascii-characters
-		/[^+a-zA-Z0-9/]/.test(input)
-	) {
-		error(
-			'Invalid character: the string to be decoded is not correctly encoded.'
-		);
-	}
-	var bitCounter = 0;
-	var bitStorage;
-	var buffer;
-	var output = '';
-	var position = -1;
-	while (++position < length) {
-		buffer = __btoa_TABLE.indexOf(input.charAt(position));
-		bitStorage = bitCounter % 4 ? bitStorage * 64 + buffer : buffer;
-		// Unless this is the first of a group of 4 characters…
-		if (bitCounter++ % 4) {
-			// …convert the first 8 bits to a single ASCII character.
-			output += String.fromCharCode(
-				0xFF & bitStorage >> (-2 * bitCounter & 6)
-			);
-		}
-	}
-	return output;
+    input = String(input)
+        .replace(__REGEX_SPACE_CHARACTERS, '');
+    var length = input.length;
+    if (length % 4 == 0) {
+        input = input.replace(/==?$/, '');
+        length = input.length;
+    }
+    if (
+        length % 4 == 1 ||
+        // http://whatwg.org/C#alphanumeric-ascii-characters
+        /[^+a-zA-Z0-9/]/.test(input)
+    ) {
+        error(
+            'Invalid character: the string to be decoded is not correctly encoded.'
+        );
+    }
+    var bitCounter = 0;
+    var bitStorage;
+    var buffer;
+    var output = '';
+    var position = -1;
+    while (++position < length) {
+        buffer = __btoa_TABLE.indexOf(input.charAt(position));
+        bitStorage = bitCounter % 4 ? bitStorage * 64 + buffer : buffer;
+        // Unless this is the first of a group of 4 characters…
+        if (bitCounter++ % 4) {
+            // …convert the first 8 bits to a single ASCII character.
+            output += String.fromCharCode(
+                0xFF & bitStorage >> (-2 * bitCounter & 6)
+            );
+        }
+    }
+    return output;
 };
 
 
 //Package Bridge (variable: bridge)
 let bridge = {
-   /**
-   * @return {String}
-   **/
-   buildFlavor: null,
+    /**
+    * @return {String}
+    **/
+    buildFlavor: null,
 
-   /**
-   * @return {Int}
-   **/
-   buildSpecVersion: null,
+    /**
+    * @return {String}
+    **/
+    buildPlatform: null,
 
-   /**
-   * @return {Int}
-   **/
-   buildVersion: null,
+    /**
+    * @return {Int}
+    **/
+    buildSpecVersion: null,
 
-   /**
-   * @param {Int} id
-   * @return {Unit}
-   **/
-   clearTimeout: function(id) {},
+    /**
+    * @return {Int}
+    **/
+    buildVersion: null,
 
-   /**
-   * @param {String} label
-   * @param {String} data
-   * @return {Unit}
-   **/
-   devSubmit: function(label, data) {},
+    /**
+    * @return {IntArray}
+    **/
+    supportedContent: null,
 
-   /**
-   * @param {V8Value} value
-   * @return {Unit}
-   **/
-   dispose: function(value) {},
+    /**
+    * @return {Array}
+    **/
+    supportedFeatures: null,
 
-   /**
-   * @return {List}
-   **/
-   getHardwareCodecs: function() {},
+    /**
+    * @param {Int} id
+    * @return {Unit}
+    **/
+    clearTimeout: function (id) { },
 
-   /**
-   * @return {Boolean}
-   **/
-   isLoggedIn: function() {},
+    /**
+    * @param {String} label
+    * @param {String} data
+    * @return {Unit}
+    **/
+    devSubmit: function (label, data) { },
 
-   /**
-   * @param {String} str
-   * @return {Unit}
-   **/
-   log: function(str) {},
+    /**
+    * @param {V8Value} value
+    * @return {Unit}
+    **/
+    dispose: function (value) { },
 
-   /**
-   * @param {V8ValueFunction} func
-   * @param {Long} timeout
-   * @return {Int}
-   **/
-   setTimeout: function(func, timeout) {},
+    /**
+    * @return {List}
+    **/
+    getHardwareCodecs: function () { },
 
-   /**
-   * @param {String} str
-   * @return {Unit}
-   **/
-   throwTest: function(str) {},
+    /**
+    * @return {Boolean}
+    **/
+    isLoggedIn: function () { },
 
-   /**
-   * @param {String} str
-   * @return {Unit}
-   **/
-   toast: function(str) {},
+    /**
+    * @param {String} str
+    * @return {Unit}
+    **/
+    log: function (str) { },
+
+    /**
+    * @param {V8ValueFunction} func
+    * @param {Long} timeout
+    * @return {Int}
+    **/
+    setTimeout: function (func, timeout) { },
+
+    /**
+    * @param {Int} length
+    * @return {Unit}
+    **/
+    sleep: function (length) { },
+
+    /**
+    * @param {String} str
+    * @return {Unit}
+    **/
+    throwTest: function (str) { },
+
+    /**
+    * @param {String} str
+    * @return {Unit}
+    **/
+    toast: function (str) { },
 
 }
 
 //Package Http (variable: http)
 let http = {
-   /**
-   * @param {String} url
-   * @param {Map} headers
-   * @param {Boolean} useAuth
-   * @param {Boolean} useByteResponse
-   * @return {IBridgeHttpResponse}
-   **/
-   GET: function(url, headers, useAuth, useByteResponse) {},
+    /**
+    * @param {String} url
+    * @param {Map} headers
+    * @param {Boolean} useAuth
+    * @param {Boolean} useByteResponse
+    * @return {IBridgeHttpResponse}
+    **/
+    GET: function (url, headers, useAuth, useByteResponse) { },
 
-   /**
-   * @param {String} url
-   * @param {Any} body
-   * @param {Map} headers
-   * @param {Boolean} useAuth
-   * @param {Boolean} useByteResponse
-   * @return {IBridgeHttpResponse}
-   **/
-   POST: function(url, body, headers, useAuth, useByteResponse) {},
+    /**
+    * @param {String} url
+    * @param {Any} body
+    * @param {Map} headers
+    * @param {Boolean} useAuth
+    * @param {Boolean} useByteResponse
+    * @return {IBridgeHttpResponse}
+    **/
+    POST: function (url, body, headers, useAuth, useByteResponse) { },
 
-   /**
-   * @return {BatchBuilder}
-   **/
-   batch: function() {},
+    /**
+    * @return {BatchBuilder}
+    **/
+    batch: function () { },
 
-   /**
-   * @param {Boolean} withAuth
-   * @return {PackageHttpClient}
-   **/
-   getDefaultClient: function(withAuth) {},
+    /**
+    * @param {Boolean} withAuth
+    * @return {PackageHttpClient}
+    **/
+    getDefaultClient: function (withAuth) { },
 
-   /**
-   * @param {Boolean} withAuth
-   * @return {PackageHttpClient}
-   **/
-   newClient: function(withAuth) {},
+    /**
+    * @param {Boolean} withAuth
+    * @return {PackageHttpClient}
+    **/
+    newClient: function (withAuth) { },
 
-   /**
-   * @param {String} method
-   * @param {String} url
-   * @param {Map} headers
-   * @param {Boolean} useAuth
-   * @param {Boolean} bytesResult
-   * @return {IBridgeHttpResponse}
-   **/
-   request: function(method, url, headers, useAuth, bytesResult) {},
+    /**
+    * @param {String} method
+    * @param {String} url
+    * @param {Map} headers
+    * @param {Boolean} useAuth
+    * @param {Boolean} bytesResult
+    * @return {IBridgeHttpResponse}
+    **/
+    request: function (method, url, headers, useAuth, bytesResult) { },
 
-   /**
-   * @param {String} method
-   * @param {String} url
-   * @param {String} body
-   * @param {Map} headers
-   * @param {Boolean} useAuth
-   * @param {Boolean} bytesResult
-   * @return {IBridgeHttpResponse}
-   **/
-   requestWithBody: function(method, url, body, headers, useAuth, bytesResult) {},
+    /**
+    * @param {String} method
+    * @param {String} url
+    * @param {String} body
+    * @param {Map} headers
+    * @param {Boolean} useAuth
+    * @param {Boolean} bytesResult
+    * @return {IBridgeHttpResponse}
+    **/
+    requestWithBody: function (method, url, body, headers, useAuth, bytesResult) { },
 
-   /**
-   * @param {String} url
-   * @param {Map} headers
-   * @param {Boolean} useAuth
-   * @return {SocketResult}
-   **/
-   socket: function(url, headers, useAuth) {},
+    /**
+    * @param {String} url
+    * @param {Map} headers
+    * @param {Boolean} useAuth
+    * @return {SocketResult}
+    **/
+    socket: function (url, headers, useAuth) { },
 
 }
 
 //Package Utilities (variable: utility)
 let utility = {
-   /**
-   * @param {String} str
-   * @return {ByteArray}
-   **/
-   fromBase64: function(str) {},
+    /**
+    * @param {String} str
+    * @return {ByteArray}
+    **/
+    fromBase64: function (str) { },
 
-   /**
-   * @param {ByteArray} arr
-   * @return {ByteArray}
-   **/
-   md5: function(arr) {},
+    /**
+    * @param {ByteArray} arr
+    * @return {ByteArray}
+    **/
+    md5: function (arr) { },
 
-   /**
-   * @param {String} str
-   * @return {String}
-   **/
-   md5String: function(str) {},
+    /**
+    * @param {String} str
+    * @return {String}
+    **/
+    md5String: function (str) { },
 
-   /**
-   * @return {String}
-   **/
-   randomUUID: function() {},
+    /**
+    * @return {String}
+    **/
+    randomUUID: function () { },
 
-   /**
-   * @param {ByteArray} arr
-   * @return {ByteArray}
-   **/
-   sha256: function(arr) {},
+    /**
+    * @param {ByteArray} arr
+    * @return {ByteArray}
+    **/
+    sha256: function (arr) { },
 
-   /**
-   * @param {String} str
-   * @return {String}
-   **/
-   sha256String: function(str) {},
+    /**
+    * @param {String} str
+    * @return {String}
+    **/
+    sha256String: function (str) { },
 
-   /**
-   * @param {ByteArray} arr
-   * @return {String}
-   **/
-   toBase64: function(arr) {},
+    /**
+    * @param {ByteArray} arr
+    * @return {String}
+    **/
+    toBase64: function (arr) { },
 
 }

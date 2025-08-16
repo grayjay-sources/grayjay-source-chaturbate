@@ -79,7 +79,7 @@ declare interface PlatformContentDef {
     datetime: integer,
     url: string
 }
-declare interface PlatformContent {}
+declare interface PlatformContent { }
 
 declare interface PlatformNestedMediaContentDef extends PlatformContentDef {
     contentUrl: string,
@@ -148,7 +148,7 @@ declare class PlatformPostDetails extends PlatformPost {
 
 
 //Sources
-declare interface IVideoSourceDescriptor {}
+declare interface IVideoSourceDescriptor { }
 
 declare interface MuxVideoSourceDescriptorDef {
     isUnMuxed: boolean,
@@ -197,6 +197,11 @@ declare interface VideoUrlRangeSourceDef extends VideoUrlSource {
 }
 declare class VideoUrlRangeSource extends VideoUrlSource {
     constructor(obj: YTVideoSourceDef);
+}
+declare interface LiveChatWindow {
+    url: string,
+    removeElements: string[],
+    removeElementsInterval: string[]
 }
 declare interface AudioUrlSourceDef {
     name: string,
@@ -339,7 +344,7 @@ declare class LiveEventComment extends LiveEvent {
 declare class LiveEventEmojis extends LiveEvent {
     constructor(name: Map<string>);
 }
-declare class LiveEventDonation extends LiveEvent  {
+declare class LiveEventDonation extends LiveEvent {
     constructor(amount: integer, name: string, message: string, thumbnail: string?, expire: Int, colorDonation: string?);
 }
 declare class LiveEventViewCount extends LiveEvent {
@@ -438,4 +443,3 @@ interface Source {
 }
 
 const source: Source;
-
